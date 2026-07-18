@@ -1,9 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
 import type { Repository } from './repository'
 import { planImport } from '../lib/importData'
 import { seedLayers } from './seed'
 import {
+  eventFromRow,
+  eventToRow,
   gcalFromRow,
   habitFromRow,
   habitToRow,
@@ -11,6 +13,7 @@ import {
   layerToRow,
   logFromRow,
   logToRow,
+  type AppEventRow,
   type GcalEventRow,
   type HabitEntryRow,
   type LayerRow,
@@ -116,19 +119,50 @@ export class SupabaseRepository implements Repository {
     return (data as GcalEventRow[]).map(gcalFromRow)
   }
 
+  async getEvents(dateFrom: string, dateTo: string): Promise<AppEvent[]> {
+    const { data, error } = await this.client
+      .from('events')
+      .select('id,date,time,end_time,title,icon,note')
+      .gte('date', dateFrom)
+      .lte('date', dateTo)
+      .order('date')
+      .order('time')
+    if (error) {
+      // 002_events.sql 未適用でも他の表示を壊さない(undefined_table)
+      if (error.code === '42P01') {
+        console.warn('eventsテーブルが未作成です。supabase/migrations/002_events.sql を実行してください。')
+        return []
+      }
+      throw error
+    }
+    return (data as AppEventRow[]).map(eventFromRow)
+  }
+
+  async saveEvent(event: AppEvent): Promise<void> {
+    const { error } = await this.client.from('events').upsert(eventToRow(event))
+    if (error) throw error
+  }
+
+  async deleteEvent(eventId: string): Promise<void> {
+    const { error } = await this.client.from('events').delete().eq('id', eventId)
+    if (error) throw error
+  }
+
   async exportAll() {
-    const [layersRes, habitsRes, logsRes] = await Promise.all([
+    const [layersRes, habitsRes, logsRes, eventsRes] = await Promise.all([
       this.client.from('layers').select('id,name,type,color,config,sort_order,archived,visible'),
       this.client.from('habit_entries').select('id,layer_id,date,value_bool,value_num,note'),
       this.client.from('log_entries').select('id,layer_id,date,time,data,note'),
+      this.client.from('events').select('id,date,time,end_time,title,icon,note'),
     ])
-    for (const res of [layersRes, habitsRes, logsRes]) {
+    for (const res of [layersRes, habitsRes, logsRes, eventsRes]) {
       if (res.error) throw res.error
     }
     return {
       layers: (layersRes.data as LayerRow[]).map(layerFromRow),
       habitEntries: (habitsRes.data as HabitEntryRow[]).map(habitFromRow),
       logEntries: (logsRes.data as LogEntryRow[]).map(logFromRow),
+      events: (eventsRes.data as AppEventRow[]).map(eventFromRow),
     }
   }
 
@@ -152,6 +186,10 @@ export class SupabaseRepository implements Repository {
     }
     if (plan.logEntries.length > 0) {
       const { error } = await this.client.from('log_entries').insert(plan.logEntries.map(logToRow))
+      if (error) throw error
+    }
+    if (plan.events.length > 0) {
+      const { error } = await this.client.from('events').insert(plan.events.map(eventToRow))
       if (error) throw error
     }
   }

@@ -45,6 +45,9 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
           const events = data.gcalEvents
             .filter((ev) => (ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))) === ds)
             .sort((a, b) => a.startAt.localeCompare(b.startAt))
+          const appEvents = data.events
+            .filter((e) => e.date === ds)
+            .sort((a, b) => a.time.localeCompare(b.time))
           const habits = layers.filter(
             (l) =>
               l.type === 'habit' &&
@@ -72,6 +75,15 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
                 </span>
               </div>
               <ul className="mt-1 space-y-0.5">
+                {appEvents.map((ev) => (
+                  <li key={ev.id} className="flex gap-2 text-xs text-slate-200">
+                    <span className="w-10 shrink-0 text-slate-500">{ev.time || '終日'}</span>
+                    <span className="truncate">
+                      {ev.icon && `${ev.icon} `}
+                      {ev.title}
+                    </span>
+                  </li>
+                ))}
                 {events.map((ev) => (
                   <li key={ev.id} className="flex gap-2 text-xs text-slate-400">
                     <span className="w-10 shrink-0 text-slate-500">
@@ -93,7 +105,7 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
                     </li>
                   )
                 })}
-                {events.length === 0 && logs.length === 0 && habits.length === 0 && (
+                {appEvents.length === 0 && events.length === 0 && logs.length === 0 && habits.length === 0 && (
                   <li className="text-xs text-slate-600">記録なし</li>
                 )}
               </ul>

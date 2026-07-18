@@ -1,4 +1,4 @@
-import type { GcalEvent, HabitEntry, Layer, LayerConfig, LogEntry } from '../types'
+import type { AppEvent, GcalEvent, HabitEntry, Layer, LayerConfig, LogEntry } from '../types'
 
 // Supabaseの行(snake_case)⇔アプリのモデル(camelCase)の変換。
 // 純粋関数としてテスト可能にしている。
@@ -107,6 +107,40 @@ export function logToRow(e: LogEntry): LogEntryRow {
     date: e.date,
     time: e.time,
     data: e.data,
+    note: e.note,
+  }
+}
+
+export interface AppEventRow {
+  id: string
+  date: string
+  time: string
+  end_time: string
+  title: string
+  icon: string
+  note: string
+}
+
+export function eventFromRow(r: AppEventRow): AppEvent {
+  return {
+    id: r.id,
+    date: r.date,
+    time: r.time ?? '',
+    endTime: r.end_time ?? '',
+    title: r.title,
+    icon: r.icon ?? '',
+    note: r.note ?? '',
+  }
+}
+
+export function eventToRow(e: AppEvent): AppEventRow {
+  return {
+    id: e.id,
+    date: e.date,
+    time: e.time,
+    end_time: e.endTime,
+    title: e.title,
+    icon: e.icon,
     note: e.note,
   }
 }

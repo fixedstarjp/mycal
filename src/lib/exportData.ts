@@ -1,9 +1,10 @@
-import type { ExportData, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, HabitEntry, Layer, LogEntry } from '../types'
 
 export function buildExportData(
   layers: Layer[],
   habitEntries: HabitEntry[],
   logEntries: LogEntry[],
+  events: AppEvent[] = [],
   now = new Date(),
 ): ExportData {
   return {
@@ -12,6 +13,7 @@ export function buildExportData(
     layers,
     habitEntries,
     logEntries,
+    events,
   }
 }
 
