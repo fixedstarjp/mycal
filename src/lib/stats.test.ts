@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { calcMonthlyRate, calcStreak, isAchieved } from './stats'
+import { addOneHour } from './dates'
 import type { HabitEntry } from '../types'
 
 function entry(date: string, over: Partial<HabitEntry> = {}): HabitEntry {
@@ -55,6 +56,17 @@ describe('calcStreak', () => {
   it('未達成エントリ(bool=false)は連続に含めない', () => {
     const entries = [entry('2026-07-17', { valueBool: false }), entry('2026-07-18')]
     expect(calcStreak(entries, '2026-07-18')).toBe(1)
+  })
+})
+
+describe('addOneHour', () => {
+  it('1時間後を返す', () => {
+    expect(addOneHour('14:05')).toBe('15:05')
+    expect(addOneHour('09:30')).toBe('10:30')
+  })
+
+  it('日をまたぐ場合は23:55に丸める', () => {
+    expect(addOneHour('23:30')).toBe('23:55')
   })
 })
 

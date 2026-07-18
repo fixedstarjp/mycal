@@ -85,7 +85,8 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
         ))}
       </div>
 
-      <div className="grid flex-1 auto-rows-fr grid-cols-7 gap-px bg-slate-800 p-px">
+      {/* minmax(0,1fr)で行がセル内容より縮めるようにし、月全体が画面内に収まるようにする */}
+      <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-7 gap-px overflow-hidden bg-slate-800 p-px">
         {days.map((d) => {
           const ds = toDateStr(d)
           const inMonth = d.getMonth() === month - 1

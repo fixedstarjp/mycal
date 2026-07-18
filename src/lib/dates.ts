@@ -30,3 +30,10 @@ export function weekDays(anchor: Date): Date[] {
 }
 
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+
+// 'HH:mm' の1時間後を返す(終了時刻のデフォルト用)。日をまたぐ場合は23:55に丸める
+export function addOneHour(time: string): string {
+  const [h, m] = time.split(':').map(Number)
+  if (h + 1 > 23) return '23:55'
+  return `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}

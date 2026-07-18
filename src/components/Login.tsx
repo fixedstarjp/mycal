@@ -19,7 +19,7 @@ export default function Login() {
   }
 
   return (
-    <div className="mx-auto flex h-dvh max-w-3xl flex-col items-center justify-center bg-slate-900 px-6 text-slate-200">
+    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center bg-slate-900 px-6 text-slate-200">
       <h1 className="mb-1 text-2xl font-bold text-slate-100">MyCal</h1>
       <p className="mb-6 text-sm text-slate-500">自分専用ライフログカレンダー</p>
 
