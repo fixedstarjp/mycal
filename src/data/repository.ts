@@ -1,4 +1,4 @@
-import type { GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
 
 // データアクセスの抽象化。
 // v1はLocalStorageRepositoryで動かし、Supabase接続時はこのインターフェースの
@@ -17,4 +17,8 @@ export interface Repository {
   deleteLogEntry(entryId: string): Promise<void>
 
   getGcalEvents(dateFrom: string, dateTo: string): Promise<GcalEvent[]>
+
+  // JSON一括エクスポート/インポート(端末間移行・バックアップ用)
+  exportAll(): Promise<Pick<ExportData, 'layers' | 'habitEntries' | 'logEntries'>>
+  importAll(data: ExportData): Promise<void>
 }

@@ -1,5 +1,6 @@
-import type { GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
 import type { Repository } from './repository'
+import { planImport } from '../lib/importData'
 import { seedGcalEvents, seedLayers } from './seed'
 
 const KEYS = {
@@ -105,12 +106,21 @@ export class LocalStorageRepository implements Repository {
       return inRange(d, dateFrom, dateTo)
     })
   }
-}
 
-export function getAllForExport() {
-  return {
-    layers: load<Layer[]>(KEYS.layers, []),
-    habitEntries: load<HabitEntry[]>(KEYS.habits, []),
-    logEntries: load<LogEntry[]>(KEYS.logs, []),
+  async exportAll() {
+    return {
+      layers: load<Layer[]>(KEYS.layers, []),
+      habitEntries: load<HabitEntry[]>(KEYS.habits, []),
+      logEntries: load<LogEntry[]>(KEYS.logs, []),
+    }
+  }
+
+  async importAll(data: ExportData): Promise<void> {
+    const existing = load<Layer[]>(KEYS.layers, [])
+    const plan = planImport(existing, data, () => crypto.randomUUID())
+    save(KEYS.layers, [...existing, ...plan.layersToCreate])
+    for (const e of plan.habitEntries) await this.upsertHabitEntry(e)
+    const logs = load<LogEntry[]>(KEYS.logs, [])
+    save(KEYS.logs, [...logs, ...plan.logEntries])
   }
 }

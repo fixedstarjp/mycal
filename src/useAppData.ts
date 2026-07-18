@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LocalStorageRepository } from './data/localRepository'
+import { SupabaseRepository } from './data/supabaseRepository'
+import { supabase } from './data/supabaseClient'
 import type { Repository } from './data/repository'
 import type { GcalEvent, HabitEntry, Layer, LogEntry } from './types'
 import { toDateStr } from './lib/dates'
 import { addMonths, endOfMonth, startOfMonth } from 'date-fns'
 
-export const repo: Repository = new LocalStorageRepository()
+// .env.localにSupabase接続情報があればSupabase、なければlocalStorage
+export const repo: Repository = supabase
+  ? new SupabaseRepository(supabase)
+  : new LocalStorageRepository()
 
 export interface AppData {
   layers: Layer[]

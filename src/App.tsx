@@ -5,11 +5,27 @@ import WeekView from './components/WeekView'
 import DayDetail from './components/DayDetail'
 import LayerManager from './components/LayerManager'
 import Settings from './components/Settings'
+import Login from './components/Login'
 import { useAppData } from './useAppData'
+import { useAuth } from './useAuth'
+import { isSupabaseMode } from './data/supabaseClient'
 
 type View = 'month' | 'week' | 'layers' | 'settings'
 
+// Supabaseモードではログイン後にのみデータ層(MainApp)をマウントする
 export default function App() {
+  const auth = useAuth()
+
+  if (!auth.ready) {
+    return <div className="mx-auto flex h-dvh max-w-3xl items-center justify-center bg-slate-900 text-slate-500">読み込み中...</div>
+  }
+  if (isSupabaseMode && !auth.session) {
+    return <Login />
+  }
+  return <MainApp />
+}
+
+function MainApp() {
   const [view, setView] = useState<View>('month')
   const [anchor, setAnchor] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -46,7 +62,7 @@ export default function App() {
         ) : view === 'layers' ? (
           <LayerManager data={data} />
         ) : (
-          <Settings />
+          <Settings data={data} />
         )}
       </main>
 
