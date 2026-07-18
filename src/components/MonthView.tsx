@@ -108,28 +108,28 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
                 {format(d, 'd')}
               </span>
 
-              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計2件まで表示 */}
-              {info?.appEvents.slice(0, 2).map((ev, i) => (
+              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計3件まで表示 */}
+              {info?.appEvents.slice(0, 3).map((ev, i) => (
                 <span
                   key={`a${i}`}
                   title={ev.title}
-                  className="flex flex-col items-center rounded bg-slate-700 px-0.5 py-0.5"
+                  className="flex flex-col items-center rounded bg-slate-700 px-0.5"
                 >
                   {/* アイコンの下に改行してタイトルを表示(狭いセルでも1文字省略にならない) */}
-                  {ev.icon && <span className="text-xs leading-4">{ev.icon}</span>}
-                  <span className="line-clamp-2 w-full break-all text-center text-[9px] leading-3 text-slate-100">
+                  {ev.icon && <span className="text-[10px] leading-3">{ev.icon}</span>}
+                  <span className="line-clamp-1 w-full break-all text-center text-[9px] leading-3 text-slate-100">
                     {ev.title}
                   </span>
                 </span>
               ))}
-              {info?.events.slice(0, Math.max(0, 2 - info.appEvents.length)).map((t, i) => (
+              {info?.events.slice(0, Math.max(0, 3 - info.appEvents.length)).map((t, i) => (
                 <span key={`g${i}`} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
                   {t}
                 </span>
               ))}
-              {info && info.appEvents.length + info.events.length > 2 && (
+              {info && info.appEvents.length + info.events.length > 3 && (
                 <span className="px-1 text-[10px] text-slate-500">
-                  +{info.appEvents.length + info.events.length - 2}
+                  +{info.appEvents.length + info.events.length - 3}
                 </span>
               )}
 
