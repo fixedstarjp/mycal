@@ -23,15 +23,23 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
   const byDate = useMemo(() => {
     const map = new Map<
       string,
-      { events: string[]; habits: Set<string>; logCounts: Map<string, number> }
+      {
+        events: string[]
+        appEvents: { icon: string; title: string }[]
+        habits: Set<string>
+        logCounts: Map<string, number>
+      }
     >()
     const get = (d: string) => {
       let v = map.get(d)
       if (!v) {
-        v = { events: [], habits: new Set(), logCounts: new Map() }
+        v = { events: [], appEvents: [], habits: new Set(), logCounts: new Map() }
         map.set(d, v)
       }
       return v
+    }
+    for (const ev of data.events) {
+      get(ev.date).appEvents.push({ icon: ev.icon, title: ev.title })
     }
     for (const ev of data.gcalEvents) {
       const d = ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))
@@ -45,7 +53,7 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
       counts.set(e.layerId, (counts.get(e.layerId) ?? 0) + 1)
     }
     return map
-  }, [data.gcalEvents, data.habitEntries, data.logEntries])
+  }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries])
 
   return (
     <div className="flex h-full flex-col">
@@ -99,14 +107,22 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
                 {format(d, 'd')}
               </span>
 
-              {/* Google予定: グレー系の控えめ表示 */}
-              {info?.events.slice(0, 2).map((t, i) => (
-                <span key={i} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
+              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計2件まで表示 */}
+              {info?.appEvents.slice(0, 2).map((ev, i) => (
+                <span key={`a${i}`} className="truncate rounded bg-slate-700 px-1 text-[10px] leading-4 text-slate-100">
+                  {ev.icon && `${ev.icon} `}
+                  {ev.title}
+                </span>
+              ))}
+              {info?.events.slice(0, Math.max(0, 2 - info.appEvents.length)).map((t, i) => (
+                <span key={`g${i}`} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
                   {t}
                 </span>
               ))}
-              {info && info.events.length > 2 && (
-                <span className="px-1 text-[10px] text-slate-500">+{info.events.length - 2}</span>
+              {info && info.appEvents.length + info.events.length > 2 && (
+                <span className="px-1 text-[10px] text-slate-500">
+                  +{info.appEvents.length + info.events.length - 2}
+                </span>
               )}
 
               <span className="mt-auto flex flex-wrap items-center gap-1">

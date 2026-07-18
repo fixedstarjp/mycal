@@ -64,6 +64,25 @@ describe('planImport', () => {
   })
 })
 
+describe('planImport (予定)', () => {
+  it('予定はIDを再採番して取り込む', () => {
+    const data = exportData({
+      events: [
+        { id: 'ev1', date: '2026-07-20', time: '10:00', endTime: '', title: '歯医者', icon: '🏥', note: '' },
+      ],
+    })
+    const plan = planImport([], data, makeIdgen())
+    expect(plan.events).toHaveLength(1)
+    expect(plan.events[0].id).not.toBe('ev1')
+    expect(plan.events[0].title).toBe('歯医者')
+  })
+
+  it('旧エクスポート(eventsなし)でも空配列で動く', () => {
+    const plan = planImport([], exportData({ events: undefined }), makeIdgen())
+    expect(plan.events).toEqual([])
+  })
+})
+
 describe('parseExportJson', () => {
   it('正しいエクスポートJSONをパースする', () => {
     const parsed = parseExportJson(JSON.stringify(exportData()))

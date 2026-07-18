@@ -60,10 +60,22 @@ export interface GcalEvent {
   allDay: boolean
 }
 
+// アプリ内で完結する自分の予定(Googleカレンダーには反映しない)
+export interface AppEvent {
+  id: string
+  date: string // YYYY-MM-DD
+  time: string // HH:mm ('' = 終日)
+  endTime: string // HH:mm ('' 可)
+  title: string
+  icon: string // 絵文字 ('' 可)
+  note: string
+}
+
 export interface ExportData {
   exportedAt: string
   version: 1
   layers: Layer[]
   habitEntries: HabitEntry[]
   logEntries: LogEntry[]
+  events?: AppEvent[] // 旧エクスポートには存在しない
 }

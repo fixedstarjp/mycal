@@ -5,7 +5,7 @@ import { seedLayers } from '../data/seed'
 describe('buildExportData', () => {
   it('全データとメタ情報を含むオブジェクトを返す', () => {
     const now = new Date('2026-07-18T09:00:00Z')
-    const data = buildExportData(seedLayers, [], [], now)
+    const data = buildExportData(seedLayers, [], [], [], now)
     expect(data.version).toBe(1)
     expect(data.exportedAt).toBe('2026-07-18T09:00:00.000Z')
     expect(data.layers).toHaveLength(4)

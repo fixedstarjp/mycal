@@ -3,7 +3,7 @@ import { LocalStorageRepository } from './data/localRepository'
 import { SupabaseRepository } from './data/supabaseRepository'
 import { supabase } from './data/supabaseClient'
 import type { Repository } from './data/repository'
-import type { GcalEvent, HabitEntry, Layer, LogEntry } from './types'
+import type { AppEvent, GcalEvent, HabitEntry, Layer, LogEntry } from './types'
 import { toDateStr } from './lib/dates'
 import { addMonths, endOfMonth, startOfMonth } from 'date-fns'
 
@@ -17,6 +17,7 @@ export interface AppData {
   habitEntries: HabitEntry[]
   logEntries: LogEntry[]
   gcalEvents: GcalEvent[]
+  events: AppEvent[]
   reload: () => void
 }
 
@@ -26,6 +27,7 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
   const [habitEntries, setHabitEntries] = useState<HabitEntry[]>([])
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
   const [gcalEvents, setGcalEvents] = useState<GcalEvent[]>([])
+  const [events, setEvents] = useState<AppEvent[]>([])
   const [tick, setTick] = useState(0)
 
   const range = useMemo(() => {
@@ -39,17 +41,19 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [ls, hs, lgs, evs] = await Promise.all([
+      const [ls, hs, lgs, gevs, evs] = await Promise.all([
         repo.getLayers(),
         repo.getHabitEntries(range.from, range.to),
         repo.getLogEntries(range.from, range.to),
         repo.getGcalEvents(range.from, range.to),
+        repo.getEvents(range.from, range.to),
       ])
       if (cancelled) return
       setLayers(ls)
       setHabitEntries(hs)
       setLogEntries(lgs)
-      setGcalEvents(evs)
+      setGcalEvents(gevs)
+      setEvents(evs)
     })()
     return () => {
       cancelled = true
@@ -58,7 +62,7 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
 
-  return { layers, habitEntries, logEntries, gcalEvents, reload }
+  return { layers, habitEntries, logEntries, gcalEvents, events, reload }
 }
 
 export function newId(): string {

@@ -12,7 +12,7 @@ export default function Settings({ data }: { data: AppData }) {
 
   async function exportJson() {
     const all = await repo.exportAll()
-    downloadJson(buildExportData(all.layers, all.habitEntries, all.logEntries))
+    downloadJson(buildExportData(all.layers, all.habitEntries, all.logEntries, all.events ?? []))
   }
 
   async function importJson(file: File) {
@@ -22,7 +22,7 @@ export default function Settings({ data }: { data: AppData }) {
       await repo.importAll(parsed)
       data.reload()
       setMessage(
-        `インポート完了: レイヤー${parsed.layers.length}件 / 習慣${parsed.habitEntries.length}件 / ログ${parsed.logEntries.length}件`,
+        `インポート完了: レイヤー${parsed.layers.length}件 / 習慣${parsed.habitEntries.length}件 / ログ${parsed.logEntries.length}件 / 予定${(parsed.events ?? []).length}件`,
       )
     } catch (e) {
       setMessage(`インポート失敗: ${e instanceof Error ? e.message : String(e)}`)

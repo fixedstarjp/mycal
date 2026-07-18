@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  eventFromRow,
+  eventToRow,
   habitFromRow,
   habitToRow,
   layerFromRow,
@@ -7,7 +9,7 @@ import {
   logFromRow,
   logToRow,
 } from './mappers'
-import type { HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
 
 const layer: Layer = {
   id: 'uuid-1',
@@ -49,6 +51,20 @@ describe('mappers', () => {
 
   it('log: row⇔model が往復で一致する', () => {
     expect(logFromRow(logToRow(log))).toEqual(log)
+  })
+
+  it('event: row⇔model が往復で一致する(end_time⇔endTime)', () => {
+    const event: AppEvent = {
+      id: 'uuid-4',
+      date: '2026-07-20',
+      time: '10:00',
+      endTime: '11:00',
+      title: '歯医者',
+      icon: '🏥',
+      note: '定期検診',
+    }
+    expect(eventFromRow(eventToRow(event))).toEqual(event)
+    expect(eventToRow(event).end_time).toBe('11:00')
   })
 
   it('habit: numericが文字列で返ってもnumberに変換する', () => {

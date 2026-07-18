@@ -3,10 +3,11 @@ import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
-import type { HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import LogEntryForm from './LogEntryForm'
+import EventForm from './EventForm'
 
 interface Props {
   date: string
@@ -17,6 +18,8 @@ interface Props {
 export default function DayDetail({ date, data, onBack }: Props) {
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null)
   const [addingLayer, setAddingLayer] = useState<Layer | null>(null)
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null)
 
   const d = new Date(date + 'T00:00:00')
   const layers = data.layers.filter((l) => !l.archived)
@@ -26,6 +29,10 @@ export default function DayDetail({ date, data, onBack }: Props) {
   const events = data.gcalEvents
     .filter((ev) => (ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))) === date)
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
+  // 終日('')が先、あとは時刻順
+  const dayEvents = data.events
+    .filter((e) => e.date === date)
+    .sort((a, b) => a.time.localeCompare(b.time))
   const dayLogs = data.logEntries.filter((e) => e.date === date)
 
   const habitOf = (layerId: string) =>
@@ -67,6 +74,12 @@ export default function DayDetail({ date, data, onBack }: Props) {
     data.reload()
   }
 
+  async function deleteEvent(event: AppEvent) {
+    if (!confirm(`予定「${event.title}」を削除しますか?`)) return
+    await repo.deleteEvent(event.id)
+    data.reload()
+  }
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 px-4 py-3">
@@ -83,23 +96,58 @@ export default function DayDetail({ date, data, onBack }: Props) {
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-24">
-        {/* Google予定(読み取り専用) */}
+        {/* 予定: 自分の予定(編集可)+Google予定(読み取り専用) */}
         <section>
-          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定 (Google)</h2>
-          {events.length === 0 ? (
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定</h2>
+          {events.length === 0 && dayEvents.length === 0 ? (
             <p className="text-sm text-slate-600">予定なし</p>
           ) : (
             <ul className="space-y-1.5">
-              {events.map((ev) => (
+              {dayEvents.map((ev) => (
                 <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/60 px-3 py-2">
+                  <span className="w-14 shrink-0 text-xs text-slate-400">
+                    {ev.time ? `${ev.time}${ev.endTime ? `-${ev.endTime}` : ''}` : '終日'}
+                  </span>
+                  <span className="truncate text-sm text-slate-100">
+                    {ev.icon && <span className="mr-1">{ev.icon}</span>}
+                    {ev.title}
+                  </span>
+                  <span className="ml-auto flex shrink-0 gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingEvent(ev)
+                        setEventFormOpen(true)
+                      }}
+                      className="text-xs text-sky-400"
+                    >
+                      編集
+                    </button>
+                    <button onClick={() => deleteEvent(ev)} className="text-xs text-rose-400">
+                      削除
+                    </button>
+                  </span>
+                </li>
+              ))}
+              {events.map((ev) => (
+                <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
                   <span className="w-14 shrink-0 text-xs text-slate-500">
                     {ev.allDay ? '終日' : format(new Date(ev.startAt), 'HH:mm')}
                   </span>
-                  <span className="truncate text-sm text-slate-300">{ev.title}</span>
+                  <span className="truncate text-sm text-slate-400">{ev.title}</span>
+                  <span className="ml-auto shrink-0 text-[10px] text-slate-600">Google</span>
                 </li>
               ))}
             </ul>
           )}
+          <button
+            onClick={() => {
+              setEditingEvent(null)
+              setEventFormOpen(true)
+            }}
+            className="mt-3 rounded-full bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 active:bg-slate-600"
+          >
+            + 予定
+          </button>
         </section>
 
         {/* 習慣チェック */}
@@ -202,6 +250,22 @@ export default function DayDetail({ date, data, onBack }: Props) {
           </div>
         </section>
       </div>
+
+      {eventFormOpen && (
+        <EventForm
+          date={date}
+          existing={editingEvent}
+          onClose={() => {
+            setEventFormOpen(false)
+            setEditingEvent(null)
+          }}
+          onSaved={() => {
+            setEventFormOpen(false)
+            setEditingEvent(null)
+            data.reload()
+          }}
+        />
+      )}
 
       {(editingLog || addingLayer) && (
         <LogEntryForm

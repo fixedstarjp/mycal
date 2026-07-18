@@ -1,4 +1,4 @@
-import type { ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
 
 // データアクセスの抽象化。
 // v1はLocalStorageRepositoryで動かし、Supabase接続時はこのインターフェースの
@@ -18,7 +18,12 @@ export interface Repository {
 
   getGcalEvents(dateFrom: string, dateTo: string): Promise<GcalEvent[]>
 
+  // アプリ内予定(Google非連携)
+  getEvents(dateFrom: string, dateTo: string): Promise<AppEvent[]>
+  saveEvent(event: AppEvent): Promise<void>
+  deleteEvent(eventId: string): Promise<void>
+
   // JSON一括エクスポート/インポート(端末間移行・バックアップ用)
-  exportAll(): Promise<Pick<ExportData, 'layers' | 'habitEntries' | 'logEntries'>>
+  exportAll(): Promise<Pick<ExportData, 'layers' | 'habitEntries' | 'logEntries' | 'events'>>
   importAll(data: ExportData): Promise<void>
 }
