@@ -4,6 +4,18 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* iOS Safariでページ自体がスクロール・バウンスしないよう全体を固定し、
+   スクロールは各ビュー内の overflow-y-auto に限定する */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
-  overscroll-behavior-y: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
 }

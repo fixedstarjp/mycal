@@ -1,9 +1,66 @@
 import { useState } from 'react'
 import type { AppEvent } from '../types'
 import { newId, repo } from '../useAppData'
+import { addOneHour } from '../lib/dates'
 
 // 予定に付けられる絵文字プリセット。自由入力も可
 const ICON_PRESETS = ['📌', '💼', '🍽️', '🏥', '✈️', '🎂', '🎉', '🏃', '📞', '🎬', '📚', '💇']
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
+
+// iOSのtime inputはstep(5分刻み)を無視するため、時・分のセレクトで入力する
+function TimeSelect({
+  value,
+  onChange,
+  disabled = false,
+  emptyLabel,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+  emptyLabel: string
+}) {
+  const [h, m] = value ? value.split(':') : ['', '']
+  // 既存データが5分刻み以外でも選択肢に出す
+  const minutes = m && !MINUTES.includes(m) ? [...MINUTES, m].sort() : MINUTES
+  const cls =
+    'rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-200 disabled:opacity-40'
+  return (
+    <span className="flex items-center gap-1">
+      <select
+        value={h}
+        disabled={disabled}
+        onChange={(e) => {
+          const nh = e.target.value
+          onChange(nh === '' ? '' : `${nh}:${m || '00'}`)
+        }}
+        className={cls}
+      >
+        <option value="">{emptyLabel}</option>
+        {HOURS.map((hh) => (
+          <option key={hh} value={hh}>
+            {hh}
+          </option>
+        ))}
+      </select>
+      <span className="text-slate-500">:</span>
+      <select
+        value={m}
+        disabled={disabled || h === ''}
+        onChange={(e) => onChange(`${h}:${e.target.value}`)}
+        className={cls}
+      >
+        {h === '' && <option value="">--</option>}
+        {minutes.map((mm) => (
+          <option key={mm} value={mm}>
+            {mm}
+          </option>
+        ))}
+      </select>
+    </span>
+  )
+}
 
 interface Props {
   date: string
@@ -98,26 +155,32 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <label className="block flex-1">
-              <span className="mb-1 block text-xs text-slate-500">開始(空欄=終日)</span>
-              <input
-                type="time"
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            <div>
+              <span className="mb-1 block text-xs text-slate-500">開始(未設定=終日)</span>
+              <TimeSelect
                 value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+                emptyLabel="--"
+                onChange={(v) => {
+                  setTime(v)
+                  // 終了は開始の1時間後をデフォルトにする(未入力or前回の自動値のときだけ上書き)
+                  if (v === '') {
+                    setEndTime('')
+                  } else if (!endTime || (time && endTime === addOneHour(time))) {
+                    setEndTime(addOneHour(v))
+                  }
+                }}
               />
-            </label>
-            <label className="block flex-1">
-              <span className="mb-1 block text-xs text-slate-500">終了(任意)</span>
-              <input
-                type="time"
+            </div>
+            <div>
+              <span className="mb-1 block text-xs text-slate-500">終了</span>
+              <TimeSelect
                 value={endTime}
+                emptyLabel="--"
                 disabled={!time}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
+                onChange={setEndTime}
               />
-            </label>
+            </div>
           </div>
 
           <label className="block">

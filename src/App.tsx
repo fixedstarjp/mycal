@@ -17,7 +17,7 @@ export default function App() {
   const auth = useAuth()
 
   if (!auth.ready) {
-    return <div className="mx-auto flex h-dvh max-w-3xl items-center justify-center bg-slate-900 text-slate-500">読み込み中...</div>
+    return <div className="mx-auto flex h-full max-w-3xl items-center justify-center bg-slate-900 text-slate-500">読み込み中...</div>
   }
   if (isSupabaseMode && !auth.session) {
     return <Login />
@@ -40,7 +40,7 @@ function MainApp() {
   ]
 
   return (
-    <div className="mx-auto flex h-dvh max-w-3xl flex-col bg-slate-900 text-slate-200">
+    <div className="mx-auto flex h-full max-w-3xl flex-col bg-slate-900 pt-[env(safe-area-inset-top)] text-slate-200">
       <main className="min-h-0 flex-1">
         {selectedDate ? (
           <DayDetail date={selectedDate} data={data} onBack={() => setSelectedDate(null)} />
