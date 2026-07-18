@@ -110,9 +110,16 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
 
               {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計2件まで表示 */}
               {info?.appEvents.slice(0, 2).map((ev, i) => (
-                <span key={`a${i}`} className="truncate rounded bg-slate-700 px-1 text-[10px] leading-4 text-slate-100">
-                  {ev.icon && `${ev.icon} `}
-                  {ev.title}
+                <span
+                  key={`a${i}`}
+                  title={ev.title}
+                  className="flex flex-col items-center rounded bg-slate-700 px-0.5 py-0.5"
+                >
+                  {/* アイコンの下に改行してタイトルを表示(狭いセルでも1文字省略にならない) */}
+                  {ev.icon && <span className="text-xs leading-4">{ev.icon}</span>}
+                  <span className="line-clamp-2 w-full break-all text-center text-[9px] leading-3 text-slate-100">
+                    {ev.title}
+                  </span>
                 </span>
               ))}
               {info?.events.slice(0, Math.max(0, 2 - info.appEvents.length)).map((t, i) => (
