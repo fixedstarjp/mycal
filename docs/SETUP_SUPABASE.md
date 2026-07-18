@@ -30,13 +30,16 @@ VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
 ```
 
-3. `npm install @supabase/supabase-js` を実行
-4. `src/data/repository.ts` のインターフェースを実装した `SupabaseRepository` を追加し、
-   `src/useAppData.ts` の `repo` を差し替える(環境変数があればSupabase、なければlocalStorageにフォールバック)
+3. 開発サーバーを再起動すると自動的にSupabaseモードで起動し、ログイン画面が表示される
+   (環境変数がなければ従来どおりlocalStorageモード。コード変更は不要)
+4. 手順3で作成した自分のメールアドレス+パスワードでログインする。初回ログイン時に
+   デフォルトの4レイヤー(筋トレ/読書/株の売買/食事記録)が自動作成される
 
 ## 5. ローカルデータの移行
-1. アプリの「設定」→「JSONエクスポート」でローカルデータを書き出す
-2. Supabase接続後にインポート処理を実行(v1.1で実装予定。それまでは手動でSQL投入)
+1. **ローカルモードのまま**「設定」→「JSONエクスポート」でローカルデータを書き出す
+2. `.env.local` を設定してSupabaseモードで起動・ログイン後、
+   「設定」→「JSONインポート」でエクスポートしたJSONを取り込む
+   (同名・同型のレイヤーは自動で統合される)
 
 ## 注意
 - anon keyはRLS前提の公開可能キーだが、`.env.local` はコミットしない運用を守ること

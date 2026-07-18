@@ -1,10 +1,32 @@
-import { getAllForExport } from '../data/localRepository'
+import { useRef, useState } from 'react'
+import type { AppData } from '../useAppData'
+import { repo } from '../useAppData'
+import { signOut } from '../useAuth'
+import { isSupabaseMode } from '../data/supabaseClient'
 import { buildExportData, downloadJson } from '../lib/exportData'
+import { parseExportJson } from '../lib/importData'
 
-export default function Settings() {
-  function exportJson() {
-    const { layers, habitEntries, logEntries } = getAllForExport()
-    downloadJson(buildExportData(layers, habitEntries, logEntries))
+export default function Settings({ data }: { data: AppData }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState('')
+
+  async function exportJson() {
+    const all = await repo.exportAll()
+    downloadJson(buildExportData(all.layers, all.habitEntries, all.logEntries))
+  }
+
+  async function importJson(file: File) {
+    setMessage('')
+    try {
+      const parsed = parseExportJson(await file.text())
+      await repo.importAll(parsed)
+      data.reload()
+      setMessage(
+        `インポート完了: レイヤー${parsed.layers.length}件 / 習慣${parsed.habitEntries.length}件 / ログ${parsed.logEntries.length}件`,
+      )
+    } catch (e) {
+      setMessage(`インポート失敗: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   return (
@@ -15,12 +37,36 @@ export default function Settings() {
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-24">
         <section>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">データ保存先</h2>
+          <div className="rounded-xl bg-slate-800/60 p-4">
+            {isSupabaseMode ? (
+              <>
+                <p className="text-sm text-slate-300">Supabase接続中(端末間で同期されます)</p>
+                <button
+                  onClick={() => signOut()}
+                  className="mt-3 w-full rounded-lg bg-slate-700 py-2.5 text-sm text-slate-300 active:bg-slate-600"
+                >
+                  サインアウト
+                </button>
+              </>
+            ) : (
+              <p className="text-sm text-slate-400">
+                ローカルモード(この端末のブラウザにのみ保存)。
+                <br />
+                端末間同期を有効にするには{' '}
+                <code className="text-xs text-slate-500">docs/SETUP_SUPABASE.md</code>{' '}
+                の手順でSupabaseを設定し、<code className="text-xs text-slate-500">.env.local</code>{' '}
+                に接続情報を記載してください。
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section>
           <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">Google カレンダー連携</h2>
           <div className="rounded-xl bg-slate-800/60 p-4">
             <p className="text-sm text-slate-400">
-              未接続(現在はモック予定を表示中)。
-              <br />
-              Supabase + Google OAuth のセットアップ後に接続できます。手順は{' '}
+              未接続{!isSupabaseMode && '(現在はモック予定を表示中)'}。手順は{' '}
               <code className="text-xs text-slate-500">docs/SETUP_GOOGLE_OAUTH.md</code> を参照。
             </p>
             <button
@@ -34,14 +80,39 @@ export default function Settings() {
 
         <section>
           <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">データ</h2>
-          <div className="rounded-xl bg-slate-800/60 p-4">
-            <p className="text-sm text-slate-400">全レイヤー・全記録をJSONで一括エクスポートします。</p>
-            <button
-              onClick={exportJson}
-              className="mt-3 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-white active:bg-sky-500"
-            >
-              JSONエクスポート
-            </button>
+          <div className="space-y-3 rounded-xl bg-slate-800/60 p-4">
+            <div>
+              <p className="text-sm text-slate-400">全レイヤー・全記録をJSONで一括エクスポートします。</p>
+              <button
+                onClick={exportJson}
+                className="mt-2 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-white active:bg-sky-500"
+              >
+                JSONエクスポート
+              </button>
+            </div>
+            <div>
+              <p className="text-sm text-slate-400">
+                エクスポートJSONを取り込みます(ローカル→Supabase移行用)。同名レイヤーは統合されます。
+              </p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) importJson(f)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="mt-2 w-full rounded-lg bg-slate-700 py-2.5 text-sm text-slate-300 active:bg-slate-600"
+              >
+                JSONインポート
+              </button>
+            </div>
+            {message && <p className="text-sm text-slate-300">{message}</p>}
           </div>
         </section>
 
@@ -50,7 +121,9 @@ export default function Settings() {
           <div className="rounded-xl bg-slate-800/60 p-4 text-sm text-slate-400">
             <p>MyCal v1 — 自分専用ライフログカレンダー</p>
             <p className="mt-1 text-xs text-slate-500">
-              データは現在この端末のブラウザ(localStorage)に保存されています。Supabase接続後は端末間で同期されます。
+              {isSupabaseMode
+                ? 'データはSupabase(RLS有効)に保存されています。'
+                : 'データは現在この端末のブラウザ(localStorage)に保存されています。'}
             </p>
           </div>
         </section>
