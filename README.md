@@ -44,7 +44,16 @@ docs/                    # Supabase / Google OAuth セットアップ手順
 scripts/gen-icons.mjs    # PWAプレースホルダアイコン生成
 ```
 
+## デプロイ(GitHub Pages)
+
+- mainブランチへのpushで [.github/workflows/deploy.yml](.github/workflows/deploy.yml) が自動実行され、
+  https://fixedstarjp.github.io/mycal/ に公開される(test → build → deploy)
+- Supabase接続情報はリポジトリのActions variables(`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`)で管理
+  (anonキーはRLS前提の公開可能キー)
+- サブパス配信のためCIでは `DEPLOY_BASE=/mycal/` を指定(ローカル開発は `/` のまま)
+- スマホでの利用: 公開URLをSafari/Chromeで開き「ホーム画面に追加」でPWAとしてインストール
+
 ## 次のステップ
-1. [docs/SETUP_SUPABASE.md](docs/SETUP_SUPABASE.md) に従いSupabaseをセットアップ → `SupabaseRepository` 実装
+1. ~~Supabaseセットアップ~~ 済(接続・認証・移行まで検証済み)
 2. [docs/SETUP_GOOGLE_OAUTH.md](docs/SETUP_GOOGLE_OAUTH.md) に従いGoogle連携(読み取り専用)
 3. iOS Safari(ホーム画面追加)での実機検証

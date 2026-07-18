@@ -4,8 +4,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// GitHub Pages等のサブパス配信用。CIで DEPLOY_BASE=/mycal/ を渡す(ローカルは '/')
+const base = process.env.DEPLOY_BASE ?? '/'
+
 // https://vite.dev/config/
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -18,7 +22,8 @@ export default defineConfig({
         description: 'Google予定の上に習慣・売買・食事の記録レイヤーを重ねる自分専用カレンダー',
         lang: 'ja',
         display: 'standalone',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         theme_color: '#1e293b',
         background_color: '#0f172a',
         icons: [
