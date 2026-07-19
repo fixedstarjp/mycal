@@ -4,7 +4,7 @@ import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
 import { getHolidayName, isRestDay } from '../lib/holidays'
 import { isAchieved } from '../lib/stats'
-import type { TempsByDate } from '../lib/weather'
+import { weatherEmoji, type TempsByDate } from '../lib/weather'
 
 interface Props {
   anchor: Date
@@ -125,38 +125,36 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
                 rest ? 'bg-slate-900' : 'bg-slate-800/45'
               }`}
             >
-              {/* 日付行: 今日は青い帯。祝日名は省略せず表示 */}
-              <span
-                className={`-m-1 mb-0 flex min-w-0 items-baseline px-1 py-0.5 ${
-                  isToday ? 'bg-sky-500' : ''
-                }`}
-              >
-                <span
-                  className={`shrink-0 text-xs leading-4 ${
-                    isToday
-                      ? 'font-bold text-white'
-                      : holiday || dow === 0
-                        ? 'text-rose-400'
-                        : dow === 6
-                          ? 'text-sky-400'
-                          : 'text-slate-300'
-                  }`}
-                >
-                  {format(d, 'd')}
-                </span>
-                {holiday && (
+              {/* 日付ブロック: 1行目=日付+祝日名(今日は青い帯)、2行目=天気+気温 */}
+              <span className={`-m-1 mb-0 flex flex-col px-1 py-0.5 ${isToday ? 'bg-sky-500' : ''}`}>
+                <span className="flex min-w-0 items-baseline">
                   <span
-                    className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
+                    className={`shrink-0 text-xs leading-4 ${
+                      isToday
+                        ? 'font-bold text-white'
+                        : holiday || dow === 0
+                          ? 'text-rose-400'
+                          : dow === 6
+                            ? 'text-sky-400'
+                            : 'text-slate-300'
+                    }`}
                   >
-                    {holiday}
+                    {format(d, 'd')}
                   </span>
-                )}
+                  {holiday && (
+                    <span
+                      className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
+                    >
+                      {holiday}
+                    </span>
+                  )}
+                </span>
                 {temp && (
                   <span
-                    className={`ml-auto shrink-0 pl-0.5 text-[8px] leading-3 ${isToday ? 'text-sky-100' : 'text-slate-400'}`}
+                    className={`text-[8px] leading-3 ${isToday ? 'text-sky-100' : 'text-slate-400'}`}
                     title={`最高${temp.max}° / 最低${temp.min}°`}
                   >
-                    {temp.max}/{temp.min}°
+                    {weatherEmoji(temp.code)} {temp.max}/{temp.min}°
                   </span>
                 )}
               </span>

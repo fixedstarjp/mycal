@@ -103,6 +103,7 @@ function MainApp() {
         <DayDetail
           date={selectedDate}
           data={data}
+          temps={temps}
           onBack={() => setSelectedDate(null)}
           onChangeDate={(d) => {
             setSelectedDate(d)
