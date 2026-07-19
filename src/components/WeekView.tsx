@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { toDateStr, todayStr, weekDays } from '../lib/dates'
+import { getHolidayName } from '../lib/holidays'
 import { isAchieved } from '../lib/stats'
 
 interface Props {
@@ -64,6 +65,9 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
                 <span className={`text-sm font-bold ${ds === today ? 'text-sky-400' : 'text-slate-200'}`}>
                   {format(d, 'M/d(E)', { locale: ja })}
                 </span>
+                {getHolidayName(d) && (
+                  <span className="text-[10px] text-rose-400">{getHolidayName(d)}</span>
+                )}
                 <span className="flex gap-1">
                   {habits.map((l) => (
                     <span
