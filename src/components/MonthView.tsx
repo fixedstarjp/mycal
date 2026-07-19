@@ -32,8 +32,9 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
     const dx = t.clientX - touchStart.current.x
     const dy = t.clientY - touchStart.current.y
     touchStart.current = null
+    // 次/前の「4週間」へまとめて移動
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      onMove(dx < 0 ? 1 : -1)
+      onMove(dx < 0 ? 4 : -4)
     }
   }
 
@@ -82,8 +83,8 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
       <header className="flex items-center justify-between px-4 py-2">
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
-          onClick={() => onMove(-1)}
-          aria-label="前の週"
+          onClick={() => onMove(-4)}
+          aria-label="前の4週間"
         >
           ◀
         </button>
@@ -92,8 +93,8 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         </h1>
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
-          onClick={() => onMove(1)}
-          aria-label="次の週"
+          onClick={() => onMove(4)}
+          aria-label="次の4週間"
         >
           ▶
         </button>
@@ -139,7 +140,8 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
                             : 'text-slate-300'
                     }`}
                   >
-                    {format(d, 'd')}
+                    {/* 毎月1日は「8/1」のように月を付けて表示 */}
+                    {d.getDate() === 1 ? format(d, 'M/d') : format(d, 'd')}
                   </span>
                   {holiday && (
                     <span
