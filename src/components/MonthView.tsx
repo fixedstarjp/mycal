@@ -1,21 +1,25 @@
 import { useMemo, useRef } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
-import { WEEKDAY_LABELS, monthGridDays, toDateStr, todayStr } from '../lib/dates'
+import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
 import { getHolidayName, isRestDay } from '../lib/holidays'
 import { isAchieved } from '../lib/stats'
+import type { TempsByDate } from '../lib/weather'
 
 interface Props {
-  year: number
-  month: number
+  anchor: Date
   data: AppData
+  temps: TempsByDate
   onSelectDate: (date: string) => void
-  onMove: (deltaMonth: number) => void
+  onMove: (deltaWeek: number) => void
 }
 
-export default function MonthView({ year, month, data, onSelectDate, onMove }: Props) {
-  const days = useMemo(() => monthGridDays(year, month), [year, month])
-  // 横スワイプで月送り(縦方向の動きが大きい場合は無視)
+// 4週間表示: 前週・当週・翌週・翌々週(当週が2段目)。
+// 当週と翌週の行は少し高くする
+export default function MonthView({ anchor, data, temps, onSelectDate, onMove }: Props) {
+  const days = useMemo(() => fourWeekDays(anchor), [anchor])
+  const today = todayStr()
+  // 横スワイプで週送り(縦方向の動きが大きい場合は無視)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
 
   function onTouchStart(e: React.TouchEvent) {
@@ -33,7 +37,6 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
     }
   }
 
-  const today = todayStr()
   const visibleLayers = data.layers.filter((l) => !l.archived && l.visible)
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
   const logLayers = visibleLayers.filter((l) => l.type === 'log')
@@ -76,57 +79,62 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
 
   return (
     <div className="flex h-full flex-col" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <header className="flex items-center justify-between px-4 py-3">
+      <header className="flex items-center justify-between px-4 py-2">
         <button
-          className="rounded-lg px-3 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
+          className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
           onClick={() => onMove(-1)}
-          aria-label="前の月"
+          aria-label="前の週"
         >
           ◀
         </button>
         <h1 className="text-lg font-bold text-slate-100">
-          {year}年{month}月
+          {format(anchor, 'yyyy年M月')}
         </h1>
         <button
-          className="rounded-lg px-3 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
+          className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
           onClick={() => onMove(1)}
-          aria-label="次の月"
+          aria-label="次の週"
         >
           ▶
         </button>
       </header>
 
-      <div className="grid grid-cols-7 px-2 text-center text-xs text-slate-500">
-        {WEEKDAY_LABELS.map((w) => (
-          <div key={w} className="py-1">
+      <div className="grid grid-cols-7 px-2 text-center text-xs">
+        {WEEKDAY_LABELS.map((w, i) => (
+          <div key={w} className={`py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-slate-500'}`}>
             {w}
           </div>
         ))}
       </div>
 
-      {/* minmax(0,1fr)で行がセル内容より縮めるようにし、月全体が画面内に収まるようにする */}
-      <div className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-7 gap-px overflow-hidden bg-slate-800 p-px">
+      {/* 当週(2段目)と翌週(3段目)を高めにする */}
+      <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-[1fr_1.4fr_1.4fr_1fr] gap-px overflow-hidden bg-slate-800 p-px">
         {days.map((d) => {
           const ds = toDateStr(d)
-          const inMonth = d.getMonth() === month - 1
           const info = byDate.get(ds)
           const isToday = ds === today
           const holiday = getHolidayName(d)
           const rest = isRestDay(d)
           const dow = d.getDay()
+          const temp = temps[ds]
           return (
             <button
               key={ds}
               onClick={() => onSelectDate(ds)}
               className={`flex flex-col items-stretch gap-0.5 overflow-hidden p-1 text-left align-top hover:bg-slate-800 active:bg-slate-700 ${
                 rest ? 'bg-slate-900' : 'bg-slate-800/45'
-              } ${inMonth ? '' : 'opacity-40'}`}
+              }`}
             >
-              <span className="flex min-w-0 items-baseline gap-1">
+              {/* 日付行: 今日は青い帯。祝日名は省略せず表示 */}
+              <span
+                className={`-m-1 mb-0 flex min-w-0 items-baseline px-1 py-0.5 ${
+                  isToday ? 'bg-sky-500' : ''
+                }`}
+              >
                 <span
-                  className={`shrink-0 rounded-full px-1.5 text-xs leading-5 ${
+                  className={`shrink-0 text-xs leading-4 ${
                     isToday
-                      ? 'bg-sky-500 font-bold text-white'
+                      ? 'font-bold text-white'
                       : holiday || dow === 0
                         ? 'text-rose-400'
                         : dow === 6
@@ -137,34 +145,43 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
                   {format(d, 'd')}
                 </span>
                 {holiday && (
-                  <span className="truncate text-[8px] leading-3 text-rose-400" title={holiday}>
+                  <span
+                    className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
+                  >
                     {holiday}
+                  </span>
+                )}
+                {temp && (
+                  <span
+                    className={`ml-auto shrink-0 pl-0.5 text-[8px] leading-3 ${isToday ? 'text-sky-100' : 'text-slate-400'}`}
+                    title={`最高${temp.max}° / 最低${temp.min}°`}
+                  >
+                    {temp.max}/{temp.min}°
                   </span>
                 )}
               </span>
 
-              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計3件まで表示 */}
-              {info?.appEvents.slice(0, 3).map((ev, i) => (
+              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計5件まで表示 */}
+              {info?.appEvents.slice(0, 5).map((ev, i) => (
                 <span
                   key={`a${i}`}
                   title={ev.title}
                   className="flex flex-col items-center rounded bg-slate-700 px-0.5"
                 >
-                  {/* アイコンの下に改行してタイトルを表示(狭いセルでも1文字省略にならない) */}
                   {ev.icon && <span className="text-[10px] leading-3">{ev.icon}</span>}
                   <span className="line-clamp-1 w-full break-all text-center text-[9px] leading-3 text-slate-100">
                     {ev.title}
                   </span>
                 </span>
               ))}
-              {info?.events.slice(0, Math.max(0, 3 - info.appEvents.length)).map((t, i) => (
+              {info?.events.slice(0, Math.max(0, 5 - info.appEvents.length)).map((t, i) => (
                 <span key={`g${i}`} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
                   {t}
                 </span>
               ))}
-              {info && info.appEvents.length + info.events.length > 3 && (
+              {info && info.appEvents.length + info.events.length > 5 && (
                 <span className="px-1 text-[10px] text-slate-500">
-                  +{info.appEvents.length + info.events.length - 3}
+                  +{info.appEvents.length + info.events.length - 5}
                 </span>
               )}
 
