@@ -6,6 +6,7 @@ import { newId, repo } from '../useAppData'
 import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
+import { getHolidayName } from '../lib/holidays'
 import LogEntryForm from './LogEntryForm'
 import EventForm from './EventForm'
 
@@ -93,6 +94,7 @@ export default function DayDetail({ date, data, onBack }: Props) {
         <h1 className="text-lg font-bold text-slate-100">
           {format(d, 'M月d日(E)', { locale: ja })}
         </h1>
+        {getHolidayName(d) && <span className="text-xs text-rose-400">{getHolidayName(d)}</span>}
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-24">

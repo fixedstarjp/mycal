@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, monthGridDays, toDateStr, todayStr } from '../lib/dates'
+import { getHolidayName, isRestDay } from '../lib/holidays'
 import { isAchieved } from '../lib/stats'
 
 interface Props {
@@ -92,20 +93,36 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
           const inMonth = d.getMonth() === month - 1
           const info = byDate.get(ds)
           const isToday = ds === today
+          const holiday = getHolidayName(d)
+          const rest = isRestDay(d)
+          const dow = d.getDay()
           return (
             <button
               key={ds}
               onClick={() => onSelectDate(ds)}
-              className={`flex flex-col items-stretch gap-0.5 overflow-hidden bg-slate-900 p-1 text-left align-top hover:bg-slate-800 active:bg-slate-700 ${
-                inMonth ? '' : 'opacity-40'
-              }`}
+              className={`flex flex-col items-stretch gap-0.5 overflow-hidden p-1 text-left align-top hover:bg-slate-800 active:bg-slate-700 ${
+                rest ? 'bg-slate-900' : 'bg-slate-800/45'
+              } ${inMonth ? '' : 'opacity-40'}`}
             >
-              <span
-                className={`self-start rounded-full px-1.5 text-xs leading-5 ${
-                  isToday ? 'bg-sky-500 font-bold text-white' : 'text-slate-300'
-                }`}
-              >
-                {format(d, 'd')}
+              <span className="flex min-w-0 items-baseline gap-1">
+                <span
+                  className={`shrink-0 rounded-full px-1.5 text-xs leading-5 ${
+                    isToday
+                      ? 'bg-sky-500 font-bold text-white'
+                      : holiday || dow === 0
+                        ? 'text-rose-400'
+                        : dow === 6
+                          ? 'text-sky-400'
+                          : 'text-slate-300'
+                  }`}
+                >
+                  {format(d, 'd')}
+                </span>
+                {holiday && (
+                  <span className="truncate text-[8px] leading-3 text-rose-400" title={holiday}>
+                    {holiday}
+                  </span>
+                )}
               </span>
 
               {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計3件まで表示 */}
