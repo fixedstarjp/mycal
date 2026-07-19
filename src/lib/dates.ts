@@ -1,12 +1,4 @@
-import {
-  addDays,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
-  startOfMonth,
-  startOfWeek,
-} from 'date-fns'
+import { addDays, addWeeks, format, startOfWeek } from 'date-fns'
 
 export function toDateStr(d: Date): string {
   return format(d, 'yyyy-MM-dd')
@@ -16,20 +8,22 @@ export function todayStr(): string {
   return toDateStr(new Date())
 }
 
-// 月ビュー用: 月曜始まりで前後の端数日を含む6週分までのグリッド
-export function monthGridDays(year: number, month: number): Date[] {
-  const first = new Date(year, month - 1, 1)
-  const start = startOfWeek(startOfMonth(first), { weekStartsOn: 1 })
-  const end = endOfWeek(endOfMonth(first), { weekStartsOn: 1 })
-  return eachDayOfInterval({ start, end })
+// 日曜始まり
+const WEEK_STARTS_ON = 0 as const
+
+// メインビュー用: 前週・当週(アンカーの週)・翌週・翌々週の4週間(28日)。
+// アンカー=今日のとき当週が必ず2段目に来る
+export function fourWeekDays(anchor: Date): Date[] {
+  const start = startOfWeek(addWeeks(anchor, -1), { weekStartsOn: WEEK_STARTS_ON })
+  return Array.from({ length: 28 }, (_, i) => addDays(start, i))
 }
 
 export function weekDays(anchor: Date): Date[] {
-  const start = startOfWeek(anchor, { weekStartsOn: 1 })
+  const start = startOfWeek(anchor, { weekStartsOn: WEEK_STARTS_ON })
   return Array.from({ length: 7 }, (_, i) => addDays(start, i))
 }
 
-export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
+export const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
 // 'HH:mm' の1時間後を返す(終了時刻のデフォルト用)。日をまたぐ場合は23:55に丸める
 export function addOneHour(time: string): string {
