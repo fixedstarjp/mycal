@@ -310,7 +310,7 @@ export default function DayDetail({ date, data, onBack }: Props) {
                   setEditingEvent(null)
                   setEventFormOpen(true)
                 }}
-                className="rounded-full bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 active:bg-slate-600"
+                className="rounded-full bg-yellow-500 px-3 py-1.5 text-sm font-medium text-slate-900 active:bg-yellow-400"
               >
                 + 予定
               </button>
