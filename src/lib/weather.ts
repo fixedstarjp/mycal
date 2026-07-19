@@ -3,6 +3,22 @@ import { toDateStr } from './dates'
 export interface DayTemp {
   max: number
   min: number
+  code?: number // WMO weather code
+}
+
+// WMO weather code → 絵文字(https://open-meteo.com/en/docs のweathercode表)
+export function weatherEmoji(code: number | undefined): string {
+  if (code === undefined) return ''
+  if (code === 0) return '☀️'
+  if (code <= 2) return '🌤️'
+  if (code === 3) return '☁️'
+  if (code <= 48) return '🌫️'
+  if (code <= 57) return '🌦️'
+  if (code <= 67) return '🌧️'
+  if (code <= 77) return '❄️'
+  if (code <= 82) return '🌧️'
+  if (code <= 86) return '❄️'
+  return '⛈️'
 }
 
 export type TempsByDate = Record<string, DayTemp>
@@ -42,8 +58,9 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
     if (raw && !force) {
       const cache = JSON.parse(raw) as Cache
       const fresh = Date.now() - new Date(cache.fetchedAt).getTime() < TTL_MS
-      const hasToday = cache.byDate[toDateStr(new Date())]
-      if (fresh && hasToday) return cache.byDate
+      const today = cache.byDate[toDateStr(new Date())]
+      // 旧形式キャッシュ(天気コードなし)は取得し直す
+      if (fresh && today && typeof today.code === 'number') return cache.byDate
     }
   } catch {
     // キャッシュ破損時は取得し直す
@@ -52,7 +69,7 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
   const { lat, lon } = await getPosition()
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`
+    `&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=7`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`)
   const json = await res.json()
@@ -67,15 +84,25 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
 
 // テスト可能な純粋関数として分離
 export function parseOpenMeteoDaily(json: {
-  daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[] }
+  daily?: {
+    time?: string[]
+    temperature_2m_max?: number[]
+    temperature_2m_min?: number[]
+    weathercode?: number[]
+  }
 }): TempsByDate {
   const byDate: TempsByDate = {}
   const time = json.daily?.time ?? []
   const max = json.daily?.temperature_2m_max ?? []
   const min = json.daily?.temperature_2m_min ?? []
+  const codes = json.daily?.weathercode ?? []
   for (let i = 0; i < time.length; i++) {
     if (typeof max[i] === 'number' && typeof min[i] === 'number') {
-      byDate[time[i]] = { max: Math.round(max[i]), min: Math.round(min[i]) }
+      byDate[time[i]] = {
+        max: Math.round(max[i]),
+        min: Math.round(min[i]),
+        ...(typeof codes[i] === 'number' ? { code: codes[i] } : {}),
+      }
     }
   }
   return byDate

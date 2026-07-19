@@ -7,12 +7,14 @@ import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
+import { weatherEmoji, type TempsByDate } from '../lib/weather'
 import LogEntryForm from './LogEntryForm'
 import EventForm from './EventForm'
 
 interface Props {
   date: string
   data: AppData
+  temps: TempsByDate
   onBack: () => void
   onChangeDate: (date: string) => void
 }
@@ -20,7 +22,7 @@ interface Props {
 // ボトムシート表示: 下から上にスライドして開き、
 // 上から下へのフリック(または背景タップ・▼ボタン)で閉じる。
 // 横フリックで前日/翌日に移動
-export default function DayDetail({ date, data, onBack, onChangeDate }: Props) {
+export default function DayDetail({ date, data, temps, onBack, onChangeDate }: Props) {
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null)
   const [addingLayer, setAddingLayer] = useState<Layer | null>(null)
   const [eventFormOpen, setEventFormOpen] = useState(false)
@@ -172,6 +174,11 @@ export default function DayDetail({ date, data, onBack, onChangeDate }: Props) {
             {format(d, 'M月d日(E)', { locale: ja })}
           </h1>
           {getHolidayName(d) && <span className="text-xs text-rose-400">{getHolidayName(d)}</span>}
+          {temps[date] && (
+            <span className="text-xs text-slate-400">
+              {weatherEmoji(temps[date].code)} {temps[date].max}/{temps[date].min}°
+            </span>
+          )}
           <button
             onClick={close}
             className="ml-auto rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
