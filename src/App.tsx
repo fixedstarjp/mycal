@@ -42,9 +42,7 @@ function MainApp() {
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col bg-slate-900 pt-[env(safe-area-inset-top)] text-slate-200">
       <main className="min-h-0 flex-1">
-        {selectedDate ? (
-          <DayDetail date={selectedDate} data={data} onBack={() => setSelectedDate(null)} />
-        ) : view === 'month' ? (
+        {view === 'month' ? (
           <MonthView
             year={anchor.getFullYear()}
             month={anchor.getMonth() + 1}
@@ -65,6 +63,11 @@ function MainApp() {
           <Settings data={data} />
         )}
       </main>
+
+      {/* 日詳細はボトムシートとして現在のビューの上に重ねる */}
+      {selectedDate && (
+        <DayDetail date={selectedDate} data={data} onBack={() => setSelectedDate(null)} />
+      )}
 
       <nav className="grid shrink-0 grid-cols-4 border-t border-slate-800 bg-slate-900 pb-[env(safe-area-inset-bottom)]">
         {nav.map((n) => (
