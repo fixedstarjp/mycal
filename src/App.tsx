@@ -121,12 +121,9 @@ function MainApp() {
             setAnchor(new Date())
           }} />
         ))}
-        {/* 中央: データ+気温のリロード */}
+        {/* 中央: ブラウザリロード(最新データ・気温・アプリ新バージョンをまとめて取り込む) */}
         <button
-          onClick={() => {
-            data.reload()
-            loadWeather(true)
-          }}
+          onClick={() => window.location.reload()}
           className="flex flex-col items-center gap-0.5 py-2 text-[10px] text-slate-500 active:text-sky-400"
           aria-label="再読み込み"
         >
