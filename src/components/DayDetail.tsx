@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { format } from 'date-fns'
+import { addDays, format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
@@ -14,11 +14,13 @@ interface Props {
   date: string
   data: AppData
   onBack: () => void
+  onChangeDate: (date: string) => void
 }
 
 // ボトムシート表示: 下から上にスライドして開き、
-// 上から下へのフリック(または背景タップ・▼ボタン)で閉じる
-export default function DayDetail({ date, data, onBack }: Props) {
+// 上から下へのフリック(または背景タップ・▼ボタン)で閉じる。
+// 横フリックで前日/翌日に移動
+export default function DayDetail({ date, data, onBack, onChangeDate }: Props) {
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null)
   const [addingLayer, setAddingLayer] = useState<Layer | null>(null)
   const [eventFormOpen, setEventFormOpen] = useState(false)
@@ -28,8 +30,11 @@ export default function DayDetail({ date, data, onBack }: Props) {
   const [entered, setEntered] = useState(false)
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState(0)
-  const dragging = useRef(false)
+  const startX = useRef(0)
   const startY = useRef(0)
+  // 最初に動いた方向で軸を固定: 'v'=下フリックで閉じる / 'h'=横フリックで日移動
+  const axis = useRef<'h' | 'v' | null>(null)
+  const canDragSheet = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,23 +49,38 @@ export default function DayDetail({ date, data, onBack }: Props) {
   }
 
   function onTouchStart(e: React.TouchEvent) {
-    // 中身が先頭までスクロールされている時だけシートのドラッグを開始
-    if ((scrollRef.current?.scrollTop ?? 0) > 0) return
-    dragging.current = true
+    startX.current = e.touches[0].clientX
     startY.current = e.touches[0].clientY
+    axis.current = null
+    // 下フリックで閉じるのは中身が先頭までスクロールされている時だけ
+    canDragSheet.current = (scrollRef.current?.scrollTop ?? 0) <= 0
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    if (!dragging.current) return
-    const dy = e.touches[0].clientY - startY.current
-    if (dy > 0) setDragY(dy)
+    const t = e.touches[0]
+    const dx = t.clientX - startX.current
+    const dy = t.clientY - startY.current
+    if (!axis.current) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+      axis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+    }
+    if (axis.current === 'v' && canDragSheet.current && dy > 0) setDragY(dy)
   }
 
-  function onTouchEnd() {
-    if (!dragging.current) return
-    dragging.current = false
-    if (dragY > 100) close()
-    else setDragY(0)
+  function onTouchEnd(e: React.TouchEvent) {
+    const dx = (e.changedTouches[0]?.clientX ?? startX.current) - startX.current
+    if (axis.current === 'h') {
+      // 横フリック: 左=翌日、右=前日
+      if (Math.abs(dx) > 60) {
+        const next = addDays(new Date(date + 'T00:00:00'), dx < 0 ? 1 : -1)
+        onChangeDate(toDateStr(next))
+      }
+    } else if (dragY > 100) {
+      close()
+    } else {
+      setDragY(0)
+    }
+    axis.current = null
   }
 
   const d = new Date(date + 'T00:00:00')
@@ -136,7 +156,7 @@ export default function DayDetail({ date, data, onBack }: Props) {
         className="absolute inset-x-0 bottom-0 top-10 mx-auto flex max-w-3xl flex-col rounded-t-2xl bg-slate-900 shadow-2xl"
         style={{
           transform: open ? `translateY(${dragY}px)` : 'translateY(100%)',
-          transition: dragging.current ? 'none' : 'transform 0.25s ease-out',
+          transition: dragY > 0 ? 'none' : 'transform 0.25s ease-out',
         }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
