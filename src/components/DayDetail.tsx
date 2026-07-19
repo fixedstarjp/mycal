@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
@@ -16,11 +16,52 @@ interface Props {
   onBack: () => void
 }
 
+// ボトムシート表示: 下から上にスライドして開き、
+// 上から下へのフリック(または背景タップ・▼ボタン)で閉じる
 export default function DayDetail({ date, data, onBack }: Props) {
   const [editingLog, setEditingLog] = useState<LogEntry | null>(null)
   const [addingLayer, setAddingLayer] = useState<Layer | null>(null)
   const [eventFormOpen, setEventFormOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null)
+
+  // シートの開閉アニメーションとスワイプ量
+  const [entered, setEntered] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const dragging = useRef(false)
+  const startY = useRef(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setEntered(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  function close() {
+    if (closing) return
+    setClosing(true)
+    setTimeout(onBack, 250)
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    // 中身が先頭までスクロールされている時だけシートのドラッグを開始
+    if ((scrollRef.current?.scrollTop ?? 0) > 0) return
+    dragging.current = true
+    startY.current = e.touches[0].clientY
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return
+    const dy = e.touches[0].clientY - startY.current
+    if (dy > 0) setDragY(dy)
+  }
+
+  function onTouchEnd() {
+    if (!dragging.current) return
+    dragging.current = false
+    if (dragY > 100) close()
+    else setDragY(0)
+  }
 
   const d = new Date(date + 'T00:00:00')
   const layers = data.layers.filter((l) => !l.archived)
@@ -81,176 +122,201 @@ export default function DayDetail({ date, data, onBack }: Props) {
     data.reload()
   }
 
+  const open = entered && !closing
+
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 px-4 py-3">
-        <button
-          onClick={onBack}
-          className="rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
-          aria-label="戻る"
-        >
-          ◀
-        </button>
-        <h1 className="text-lg font-bold text-slate-100">
-          {format(d, 'M月d日(E)', { locale: ja })}
-        </h1>
-        {getHolidayName(d) && <span className="text-xs text-rose-400">{getHolidayName(d)}</span>}
-      </header>
+    <div className="fixed inset-0 z-40">
+      {/* 背景: タップで閉じる */}
+      <div
+        className={`absolute inset-0 bg-black/50 transition-opacity duration-250 ${open ? 'opacity-100' : 'opacity-0'}`}
+        onClick={close}
+      />
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-24">
-        {/* 予定: 自分の予定(編集可)+Google予定(読み取り専用) */}
-        <section>
-          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定</h2>
-          {events.length === 0 && dayEvents.length === 0 ? (
-            <p className="text-sm text-slate-600">予定なし</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {dayEvents.map((ev) => (
-                <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/60 px-3 py-2">
-                  <span className="w-14 shrink-0 text-xs text-slate-400">
-                    {ev.time ? `${ev.time}${ev.endTime ? `-${ev.endTime}` : ''}` : '終日'}
-                  </span>
-                  <span className="truncate text-sm text-slate-100">
-                    {ev.icon && <span className="mr-1">{ev.icon}</span>}
-                    {ev.title}
-                  </span>
-                  <span className="ml-auto flex shrink-0 gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingEvent(ev)
-                        setEventFormOpen(true)
-                      }}
-                      className="text-xs text-sky-400"
-                    >
-                      編集
-                    </button>
-                    <button onClick={() => deleteEvent(ev)} className="text-xs text-rose-400">
-                      削除
-                    </button>
-                  </span>
-                </li>
-              ))}
-              {events.map((ev) => (
-                <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
-                  <span className="w-14 shrink-0 text-xs text-slate-500">
-                    {ev.allDay ? '終日' : format(new Date(ev.startAt), 'HH:mm')}
-                  </span>
-                  <span className="truncate text-sm text-slate-400">{ev.title}</span>
-                  <span className="ml-auto shrink-0 text-[10px] text-slate-600">Google</span>
-                </li>
-              ))}
-            </ul>
-          )}
+      <div
+        className="absolute inset-x-0 bottom-0 top-10 mx-auto flex max-w-3xl flex-col rounded-t-2xl bg-slate-900 shadow-2xl"
+        style={{
+          transform: open ? `translateY(${dragY}px)` : 'translateY(100%)',
+          transition: dragging.current ? 'none' : 'transform 0.25s ease-out',
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* ドラッグハンドル */}
+        <div className="flex shrink-0 justify-center pb-1 pt-2">
+          <span className="h-1 w-10 rounded-full bg-slate-700" />
+        </div>
+
+        <header className="flex shrink-0 items-center gap-3 px-4 pb-2">
+          <h1 className="text-lg font-bold text-slate-100">
+            {format(d, 'M月d日(E)', { locale: ja })}
+          </h1>
+          {getHolidayName(d) && <span className="text-xs text-rose-400">{getHolidayName(d)}</span>}
           <button
-            onClick={() => {
-              setEditingEvent(null)
-              setEventFormOpen(true)
-            }}
-            className="mt-3 rounded-full bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 active:bg-slate-600"
+            onClick={close}
+            className="ml-auto rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
+            aria-label="閉じる"
           >
-            + 予定
+            ▼
           </button>
-        </section>
+        </header>
 
-        {/* 習慣チェック */}
-        <section>
-          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">習慣</h2>
-          <ul className="space-y-2">
-            {habitLayers.map((layer) => {
-              const entry = habitOf(layer.id)
-              const achieved = entry ? isAchieved(entry) : false
-              const kind = layer.config.habitKind ?? 'bool'
-              const streak = calcStreak(
-                data.habitEntries.filter((e) => e.layerId === layer.id),
-                date,
-              )
-              return (
-                <li key={layer.id} className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2">
-                  <button
-                    onClick={() => toggleHabit(layer)}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold transition ${
-                      achieved ? 'text-white' : 'border-slate-600 text-transparent'
-                    }`}
-                    style={achieved ? { backgroundColor: layer.color, borderColor: layer.color } : {}}
-                    aria-label={`${layer.name}を切り替え`}
-                  >
-                    ✓
-                  </button>
-                  <span className="flex-1 text-sm text-slate-200">{layer.name}</span>
-                  {kind === 'number' && (
-                    <span className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={0}
-                        value={entry?.valueNum ?? ''}
-                        placeholder="0"
-                        onChange={(e) => setHabitNum(layer, Number(e.target.value))}
-                        className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-right text-sm text-slate-200"
-                      />
-                      <span className="text-xs text-slate-500">{layer.config.habitUnit}</span>
+        <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-10">
+          {/* 予定: 自分の予定(編集可)+Google予定(読み取り専用) */}
+          <section>
+            <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定</h2>
+            {events.length === 0 && dayEvents.length === 0 ? (
+              <p className="text-sm text-slate-600">予定なし</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {dayEvents.map((ev) => (
+                  <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/60 px-3 py-2">
+                    <span className="w-14 shrink-0 text-xs text-slate-400">
+                      {ev.time ? `${ev.time}${ev.endTime ? `-${ev.endTime}` : ''}` : '終日'}
                     </span>
-                  )}
-                  {streak > 0 && (
-                    <span className="text-xs text-slate-500" title="連続日数">
-                      🔥{streak}
+                    <span className="truncate text-sm text-slate-100">
+                      {ev.icon && <span className="mr-1">{ev.icon}</span>}
+                      {ev.title}
                     </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-
-        {/* ログ */}
-        <section>
-          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">記録</h2>
-          <ul className="space-y-2">
-            {dayLogs.map((entry) => {
-              const layer = logLayers.find((l) => l.id === entry.layerId)
-              if (!layer) return null
-              return (
-                <li key={entry.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                      style={{ backgroundColor: layer.color }}
-                    >
-                      {layer.name}
-                    </span>
-                    {entry.time && <span className="text-xs text-slate-500">{entry.time}</span>}
-                    <span className="ml-auto flex gap-2">
-                      <button onClick={() => setEditingLog(entry)} className="text-xs text-sky-400">
+                    <span className="ml-auto flex shrink-0 gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingEvent(ev)
+                          setEventFormOpen(true)
+                        }}
+                        className="text-xs text-sky-400"
+                      >
                         編集
                       </button>
-                      <button onClick={() => deleteLog(entry)} className="text-xs text-rose-400">
+                      <button onClick={() => deleteEvent(ev)} className="text-xs text-rose-400">
                         削除
                       </button>
                     </span>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-300">
-                    {(layer.config.fields ?? [])
-                      .map((f) => entry.data[f.key])
-                      .filter((v) => v !== undefined && v !== '')
-                      .join(' / ')}
-                  </p>
-                  {entry.note && <p className="mt-0.5 text-xs text-slate-500">{entry.note}</p>}
-                </li>
-              )
-            })}
-          </ul>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {logLayers.map((l) => (
+                  </li>
+                ))}
+                {events.map((ev) => (
+                  <li key={ev.id} className="flex items-center gap-2 rounded-lg bg-slate-800/40 px-3 py-2">
+                    <span className="w-14 shrink-0 text-xs text-slate-500">
+                      {ev.allDay ? '終日' : format(new Date(ev.startAt), 'HH:mm')}
+                    </span>
+                    <span className="truncate text-sm text-slate-400">{ev.title}</span>
+                    <span className="ml-auto shrink-0 text-[10px] text-slate-600">Google</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* 習慣チェック */}
+          <section>
+            <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">習慣</h2>
+            <ul className="space-y-2">
+              {habitLayers.map((layer) => {
+                const entry = habitOf(layer.id)
+                const achieved = entry ? isAchieved(entry) : false
+                const kind = layer.config.habitKind ?? 'bool'
+                const streak = calcStreak(
+                  data.habitEntries.filter((e) => e.layerId === layer.id),
+                  date,
+                )
+                return (
+                  <li key={layer.id} className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2">
+                    <button
+                      onClick={() => toggleHabit(layer)}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold transition ${
+                        achieved ? 'text-white' : 'border-slate-600 text-transparent'
+                      }`}
+                      style={achieved ? { backgroundColor: layer.color, borderColor: layer.color } : {}}
+                      aria-label={`${layer.name}を切り替え`}
+                    >
+                      ✓
+                    </button>
+                    <span className="flex-1 text-sm text-slate-200">{layer.name}</span>
+                    {kind === 'number' && (
+                      <span className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          value={entry?.valueNum ?? ''}
+                          placeholder="0"
+                          onChange={(e) => setHabitNum(layer, Number(e.target.value))}
+                          className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-right text-sm text-slate-200"
+                        />
+                        <span className="text-xs text-slate-500">{layer.config.habitUnit}</span>
+                      </span>
+                    )}
+                    {streak > 0 && (
+                      <span className="text-xs text-slate-500" title="連続日数">
+                        🔥{streak}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+
+          {/* ログ */}
+          <section>
+            <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">記録</h2>
+            <ul className="space-y-2">
+              {dayLogs.map((entry) => {
+                const layer = logLayers.find((l) => l.id === entry.layerId)
+                if (!layer) return null
+                return (
+                  <li key={entry.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                        style={{ backgroundColor: layer.color }}
+                      >
+                        {layer.name}
+                      </span>
+                      {entry.time && <span className="text-xs text-slate-500">{entry.time}</span>}
+                      <span className="ml-auto flex gap-2">
+                        <button onClick={() => setEditingLog(entry)} className="text-xs text-sky-400">
+                          編集
+                        </button>
+                        <button onClick={() => deleteLog(entry)} className="text-xs text-rose-400">
+                          削除
+                        </button>
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-300">
+                      {(layer.config.fields ?? [])
+                        .map((f) => entry.data[f.key])
+                        .filter((v) => v !== undefined && v !== '')
+                        .join(' / ')}
+                    </p>
+                    {entry.note && <p className="mt-0.5 text-xs text-slate-500">{entry.note}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+            {/* 追加ボタン: ログレイヤー+予定をひとまとめに */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {logLayers.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => setAddingLayer(l)}
+                  className="rounded-full px-3 py-1.5 text-sm font-medium text-white active:opacity-80"
+                  style={{ backgroundColor: l.color }}
+                >
+                  + {l.name}
+                </button>
+              ))}
               <button
-                key={l.id}
-                onClick={() => setAddingLayer(l)}
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-white active:opacity-80"
-                style={{ backgroundColor: l.color }}
+                onClick={() => {
+                  setEditingEvent(null)
+                  setEventFormOpen(true)
+                }}
+                className="rounded-full bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 active:bg-slate-600"
               >
-                + {l.name}
+                + 予定
               </button>
-            ))}
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
       </div>
 
       {eventFormOpen && (
