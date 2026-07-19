@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, monthGridDays, toDateStr, todayStr } from '../lib/dates'
@@ -15,6 +15,24 @@ interface Props {
 
 export default function MonthView({ year, month, data, onSelectDate, onMove }: Props) {
   const days = useMemo(() => monthGridDays(year, month), [year, month])
+  // 横スワイプで月送り(縦方向の動きが大きい場合は無視)
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!touchStart.current) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStart.current.x
+    const dy = t.clientY - touchStart.current.y
+    touchStart.current = null
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      onMove(dx < 0 ? 1 : -1)
+    }
+  }
+
   const today = todayStr()
   const visibleLayers = data.layers.filter((l) => !l.archived && l.visible)
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
@@ -57,7 +75,7 @@ export default function MonthView({ year, month, data, onSelectDate, onMove }: P
   }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries])
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <header className="flex items-center justify-between px-4 py-3">
         <button
           className="rounded-lg px-3 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"

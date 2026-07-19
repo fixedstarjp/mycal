@@ -19,3 +19,13 @@ body {
   inset: 0;
   width: 100%;
 }
+
+/* iOS Safariは16px未満の入力欄にフォーカスすると自動ズームするため、
+   タッチ端末では入力系だけ16pxに引き上げて拡大を防ぐ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

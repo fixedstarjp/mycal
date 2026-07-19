@@ -66,7 +66,16 @@ function MainApp() {
 
       {/* 日詳細はボトムシートとして現在のビューの上に重ねる */}
       {selectedDate && (
-        <DayDetail date={selectedDate} data={data} onBack={() => setSelectedDate(null)} />
+        <DayDetail
+          date={selectedDate}
+          data={data}
+          onBack={() => setSelectedDate(null)}
+          onChangeDate={(d) => {
+            setSelectedDate(d)
+            // 月をまたいでもデータ範囲・背景の月が追従するようにする
+            setAnchor(new Date(d + 'T00:00:00'))
+          }}
+        />
       )}
 
       <nav className="grid shrink-0 grid-cols-4 border-t border-slate-800 bg-slate-900 pb-[env(safe-area-inset-bottom)]">
