@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
 import type { FieldDef, FieldType, Layer } from '../types'
+import BottomModal from './BottomModal'
 
 const PALETTE = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#ef4444']
 
@@ -140,9 +141,12 @@ function LayerEditForm({
         layer.type === 'habit'
           ? { habitKind, habitUnit: habitUnit || undefined }
           : {
+              // hideNote等の既存設定は編集フォームで触らないため引き継ぐ
+              ...layer.config,
               fields: fields.map((f) => ({
                 ...f,
-                options: f.type === 'select' ? (f.options ?? []) : undefined,
+                options:
+                  f.type === 'select' || f.type === 'multiselect' ? (f.options ?? []) : undefined,
               })),
             },
     })
@@ -150,16 +154,12 @@ function LayerEditForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
-      <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-slate-900 p-4 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-3 text-base font-bold text-slate-100">
-          {isNew ? 'レイヤー追加' : 'レイヤー編集'}({layer.type === 'habit' ? '習慣型' : 'ログ型'})
-        </h2>
-
-        <div className="space-y-3">
+    <BottomModal
+      title={`${isNew ? 'レイヤー追加' : 'レイヤー編集'}(${layer.type === 'habit' ? '習慣型' : 'ログ型'})`}
+      error={error}
+      onClose={onClose}
+      onSubmit={submit}
+    >
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">名前</span>
             <input
@@ -230,8 +230,10 @@ function LayerEditForm({
                       className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
                     >
                       <option value="text">テキスト</option>
+                      <option value="textarea">長文</option>
                       <option value="number">数値</option>
-                      <option value="select">選択肢</option>
+                      <option value="select">選択肢(1つ)</option>
+                      <option value="multiselect">選択肢(複数)</option>
                     </select>
                     <button
                       onClick={() => setFields((fs) => fs.filter((_, j) => j !== i))}
@@ -240,7 +242,7 @@ function LayerEditForm({
                       削除
                     </button>
                   </div>
-                  {f.type === 'select' && (
+                  {(f.type === 'select' || f.type === 'multiselect') && (
                     <input
                       value={(f.options ?? []).join(',')}
                       placeholder="選択肢をカンマ区切りで(例: 朝,昼,夜)"
@@ -267,25 +269,6 @@ function LayerEditForm({
               </button>
             </div>
           )}
-        </div>
-
-        {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg bg-slate-800 py-2.5 text-sm text-slate-300 active:bg-slate-700"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={submit}
-            className="flex-1 rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-white active:bg-sky-500"
-          >
-            保存
-          </button>
-        </div>
-      </div>
-    </div>
+    </BottomModal>
   )
 }

@@ -1,10 +1,11 @@
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
-import { getHolidayName, isRestDay } from '../lib/holidays'
 import { isAchieved } from '../lib/stats'
-import { weatherEmoji, type TempsByDate } from '../lib/weather'
+import type { TempsByDate } from '../lib/weather'
+import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe'
+import DayCell, { type DayCellInfo } from './DayCell'
 
 interface Props {
   anchor: Date
@@ -15,28 +16,11 @@ interface Props {
 }
 
 // 4週間表示: 前週・当週・翌週・翌々週(当週が2段目)。
-// 当週と翌週の行は少し高くする
+// 当週と翌週の行は少し高くする。横スワイプ・矢印で次/前の4週間へ移動
 export default function MonthView({ anchor, data, temps, onSelectDate, onMove }: Props) {
   const days = useMemo(() => fourWeekDays(anchor), [anchor])
   const today = todayStr()
-  // 横スワイプで週送り(縦方向の動きが大きい場合は無視)
-  const touchStart = useRef<{ x: number; y: number } | null>(null)
-
-  function onTouchStart(e: React.TouchEvent) {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }
-
-  function onTouchEnd(e: React.TouchEvent) {
-    if (!touchStart.current) return
-    const t = e.changedTouches[0]
-    const dx = t.clientX - touchStart.current.x
-    const dy = t.clientY - touchStart.current.y
-    touchStart.current = null
-    // 次/前の「4週間」へまとめて移動
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      onMove(dx < 0 ? 4 : -4)
-    }
-  }
+  const swipe = useHorizontalSwipe((dir) => onMove(dir * 4))
 
   const visibleLayers = data.layers.filter((l) => !l.archived && l.visible)
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
@@ -44,15 +28,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
 
   // date -> 集計のインデックスを作る
   const byDate = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        events: string[]
-        appEvents: { icon: string; title: string }[]
-        habits: Set<string>
-        logCounts: Map<string, number>
-      }
-    >()
+    const map = new Map<string, DayCellInfo>()
     const get = (d: string) => {
       let v = map.get(d)
       if (!v) {
@@ -79,7 +55,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
   }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries])
 
   return (
-    <div className="flex h-full flex-col" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="flex h-full flex-col" {...swipe}>
       <header className="flex items-center justify-between px-4 py-2">
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
@@ -88,9 +64,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         >
           ◀
         </button>
-        <h1 className="text-lg font-bold text-slate-100">
-          {format(anchor, 'yyyy年M月')}
-        </h1>
+        <h1 className="text-lg font-bold text-slate-100">{format(anchor, 'yyyy年M月')}</h1>
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
           onClick={() => onMove(4)}
@@ -112,108 +86,18 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
       <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-[1fr_1.4fr_1.4fr_1fr] gap-px overflow-hidden bg-slate-800 p-px">
         {days.map((d) => {
           const ds = toDateStr(d)
-          const info = byDate.get(ds)
-          const isToday = ds === today
-          const holiday = getHolidayName(d)
-          const rest = isRestDay(d)
-          const dow = d.getDay()
-          const temp = temps[ds]
           return (
-            <button
+            <DayCell
               key={ds}
-              onClick={() => onSelectDate(ds)}
-              className={`flex flex-col items-stretch gap-0.5 overflow-hidden p-1 text-left align-top hover:bg-slate-800 active:bg-slate-700 ${
-                rest ? 'bg-slate-900' : 'bg-slate-800/45'
-              }`}
-            >
-              {/* 日付ブロック: 1行目=日付+祝日名(今日は青い帯)、2行目=天気+気温 */}
-              <span className={`-m-1 mb-0 flex flex-col px-1 py-0.5 ${isToday ? 'bg-sky-500' : ''}`}>
-                <span className="flex min-w-0 items-baseline">
-                  <span
-                    className={`shrink-0 text-xs leading-4 ${
-                      isToday
-                        ? 'font-bold text-white'
-                        : holiday || dow === 0
-                          ? 'text-rose-400'
-                          : dow === 6
-                            ? 'text-sky-400'
-                            : 'text-slate-300'
-                    }`}
-                  >
-                    {/* 毎月1日は「8/1」のように月を付けて表示 */}
-                    {d.getDate() === 1 ? format(d, 'M/d') : format(d, 'd')}
-                  </span>
-                  {holiday && (
-                    <span
-                      className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
-                    >
-                      {holiday}
-                    </span>
-                  )}
-                </span>
-                {temp && (
-                  <span
-                    className={`text-[8px] leading-3 ${isToday ? 'text-sky-100' : 'text-slate-400'}`}
-                    title={`最高${temp.max}° / 最低${temp.min}°`}
-                  >
-                    {weatherEmoji(temp.code)} {temp.max}/{temp.min}°
-                  </span>
-                )}
-              </span>
-
-              {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に、計5件まで表示 */}
-              {info?.appEvents.slice(0, 5).map((ev, i) => (
-                <span
-                  key={`a${i}`}
-                  title={ev.title}
-                  className="flex flex-col items-center rounded bg-slate-700 px-0.5"
-                >
-                  {ev.icon && <span className="text-[10px] leading-3">{ev.icon}</span>}
-                  <span className="line-clamp-1 w-full break-all text-center text-[9px] leading-3 text-slate-100">
-                    {ev.title}
-                  </span>
-                </span>
-              ))}
-              {info?.events.slice(0, Math.max(0, 5 - info.appEvents.length)).map((t, i) => (
-                <span key={`g${i}`} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
-                  {t}
-                </span>
-              ))}
-              {info && info.appEvents.length + info.events.length > 5 && (
-                <span className="px-1 text-[10px] text-slate-500">
-                  +{info.appEvents.length + info.events.length - 5}
-                </span>
-              )}
-
-              <span className="mt-auto flex flex-wrap items-center gap-1">
-                {/* 習慣ドット(達成日のみ) */}
-                {habitLayers
-                  .filter((l) => info?.habits.has(l.id))
-                  .map((l) => (
-                    <span
-                      key={l.id}
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: l.color }}
-                      title={l.name}
-                    />
-                  ))}
-                {/* ログ件数バッジ */}
-                {logLayers.map((l) => {
-                  const n = info?.logCounts.get(l.id) ?? 0
-                  if (n === 0) return null
-                  return (
-                    <span
-                      key={l.id}
-                      className="rounded px-1 text-[10px] font-medium leading-4 text-white"
-                      style={{ backgroundColor: l.color }}
-                      title={`${l.name} ${n}件`}
-                    >
-                      {n}
-                    </span>
-                  )
-                })}
-              </span>
-            </button>
+              d={d}
+              ds={ds}
+              isToday={ds === today}
+              info={byDate.get(ds)}
+              temp={temps[ds]}
+              habitLayers={habitLayers}
+              logLayers={logLayers}
+              onSelect={onSelectDate}
+            />
           )
         })}
       </div>

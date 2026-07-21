@@ -1,7 +1,26 @@
 import { addDays, format, setHours, setMinutes } from 'date-fns'
 import type { GcalEvent, Layer } from '../types'
 
-// v1初期レイヤー: 筋トレ・読書(習慣型)、株の売買・食事記録(ログ型)
+// 食事記録の食材候補(複数選択)と日記の気分候補
+export const MEAL_OPTIONS = [
+  'ヨーグルト',
+  'バナナ',
+  'スムージー',
+  'ナッツ',
+  'ゆで卵',
+  'パスタ',
+  'キャベツ',
+  'トマト',
+  'キムチ',
+  '鶏豚牛肉',
+  'さつま芋',
+  'パン',
+  '白米',
+  '納豆',
+]
+export const MOOD_OPTIONS = ['😄', '🙂', '😐', '😕', '😢']
+
+// v1初期レイヤー: 筋トレ・ウォーキング・瞑想(習慣型)、株の売買・食事記録・日記(ログ型)
 export const seedLayers: Layer[] = [
   {
     id: 'layer-workout',
@@ -58,7 +77,13 @@ export const seedLayers: Layer[] = [
     config: {
       fields: [
         { key: 'slot', label: '時間帯', type: 'select', options: ['朝', '昼', '夜', '間食'], required: true },
-        { key: 'content', label: '内容', type: 'text', required: true },
+        {
+          key: 'content',
+          label: '内容',
+          type: 'multiselect',
+          options: MEAL_OPTIONS,
+          required: true,
+        },
       ],
     },
     sortOrder: 4,
@@ -71,7 +96,11 @@ export const seedLayers: Layer[] = [
     type: 'log',
     color: '#a855f7',
     config: {
-      fields: [{ key: 'content', label: '内容', type: 'text', required: true }],
+      hideNote: true,
+      fields: [
+        { key: 'mood', label: '気分', type: 'select', options: MOOD_OPTIONS, required: false },
+        { key: 'content', label: '内容', type: 'textarea', required: true },
+      ],
     },
     sortOrder: 5,
     archived: false,
