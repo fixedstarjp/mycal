@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AppEvent } from '../types'
 import { newId, repo } from '../useAppData'
 import { addOneHour } from '../lib/dates'
+import BottomModal from './BottomModal'
 
 // 予定に付けられる絵文字プリセット。自由入力も可
 const ICON_PRESETS = ['📌', '💼', '🍽️', '🏥', '✈️', '🎂', '🎉', '🏃', '📞', '🎬', '📚', '💇']
@@ -25,7 +26,7 @@ function TimeSelect({
   // 既存データが5分刻み以外でも選択肢に出す
   const minutes = m && !MINUTES.includes(m) ? [...MINUTES, m].sort() : MINUTES
   const cls =
-    'rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-slate-200 disabled:opacity-40'
+    'rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-base text-slate-200 disabled:opacity-40'
   return (
     <span className="flex items-center gap-1">
       <select
@@ -99,16 +100,12 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
-      <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-slate-900 p-4 shadow-xl sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="mb-3 text-base font-bold text-slate-100">
-          {existing ? '予定を編集' : '予定を追加'}
-        </h2>
-
-        <div className="space-y-3">
+    <BottomModal
+      title={existing ? '予定を編集' : '予定を追加'}
+      error={error}
+      onClose={onClose}
+      onSubmit={submit}
+    >
           <label className="block">
             <span className="mb-1 block text-xs text-slate-500">
               タイトル<span className="text-rose-400"> *</span>
@@ -117,7 +114,7 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="例: 歯医者"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-base text-slate-200"
             />
           </label>
 
@@ -189,28 +186,9 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-base text-slate-200"
             />
           </label>
-        </div>
-
-        {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg bg-slate-800 py-2.5 text-sm text-slate-300 active:bg-slate-700"
-          >
-            キャンセル
-          </button>
-          <button
-            onClick={submit}
-            className="flex-1 rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-white active:bg-sky-500"
-          >
-            保存
-          </button>
-        </div>
-      </div>
-    </div>
+    </BottomModal>
   )
 }

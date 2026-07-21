@@ -23,7 +23,7 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 py-2 text-[10px] ${
+      className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
         active ? 'text-sky-400' : 'text-slate-500'
       }`}
     >
@@ -113,7 +113,7 @@ function MainApp() {
         />
       )}
 
-      <nav className="grid shrink-0 grid-cols-5 border-t border-slate-800 bg-slate-900 pb-[env(safe-area-inset-bottom)]">
+      <nav className="grid shrink-0 grid-cols-5 border-t border-slate-800 bg-slate-900 pb-[calc(env(safe-area-inset-bottom)*0.5)]">
         {nav.slice(0, 2).map((n) => (
           <NavButton key={n.key} item={n} active={view === n.key && !selectedDate} onClick={() => {
             setView(n.key)
@@ -124,7 +124,7 @@ function MainApp() {
         {/* 中央: ブラウザリロード(最新データ・気温・アプリ新バージョンをまとめて取り込む) */}
         <button
           onClick={() => window.location.reload()}
-          className="flex flex-col items-center gap-0.5 py-2 text-[10px] text-slate-500 active:text-sky-400"
+          className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] text-slate-500 active:text-sky-400"
           aria-label="再読み込み"
         >
           <span className="text-base leading-none">🔄</span>

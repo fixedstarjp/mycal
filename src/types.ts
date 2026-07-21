@@ -2,13 +2,13 @@
 
 export type LayerType = 'habit' | 'log'
 
-export type FieldType = 'text' | 'number' | 'select'
+export type FieldType = 'text' | 'number' | 'select' | 'textarea' | 'multiselect'
 
 export interface FieldDef {
   key: string
   label: string
   type: FieldType
-  options?: string[] // type === 'select' のとき必須
+  options?: string[] // type === 'select' | 'multiselect' のとき必須
   required?: boolean
 }
 
@@ -20,6 +20,7 @@ export interface LayerConfig {
   habitUnit?: string // 数値習慣の単位(分、セット等)
   // log型: フィールド定義
   fields?: FieldDef[]
+  hideNote?: boolean // log型でメモ欄を隠す(日記など内容欄で完結する場合)
 }
 
 export interface Layer {

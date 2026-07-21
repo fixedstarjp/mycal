@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { addDays, format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
@@ -8,6 +8,7 @@ import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
 import { weatherEmoji, type TempsByDate } from '../lib/weather'
+import { useBottomSheet } from '../hooks/useBottomSheet'
 import LogEntryForm from './LogEntryForm'
 import EventForm from './EventForm'
 
@@ -28,62 +29,14 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
   const [eventFormOpen, setEventFormOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null)
 
-  // シートの開閉アニメーションとスワイプ量
-  const [entered, setEntered] = useState(false)
-  const [closing, setClosing] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const startX = useRef(0)
-  const startY = useRef(0)
-  // 最初に動いた方向で軸を固定: 'v'=下フリックで閉じる / 'h'=横フリックで日移動
-  const axis = useRef<'h' | 'v' | null>(null)
-  const canDragSheet = useRef(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setEntered(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  function close() {
-    if (closing) return
-    setClosing(true)
-    setTimeout(onBack, 250)
-  }
-
-  function onTouchStart(e: React.TouchEvent) {
-    startX.current = e.touches[0].clientX
-    startY.current = e.touches[0].clientY
-    axis.current = null
-    // 下フリックで閉じるのは中身が先頭までスクロールされている時だけ
-    canDragSheet.current = (scrollRef.current?.scrollTop ?? 0) <= 0
-  }
-
-  function onTouchMove(e: React.TouchEvent) {
-    const t = e.touches[0]
-    const dx = t.clientX - startX.current
-    const dy = t.clientY - startY.current
-    if (!axis.current) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
-      axis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
-    }
-    if (axis.current === 'v' && canDragSheet.current && dy > 0) setDragY(dy)
-  }
-
-  function onTouchEnd(e: React.TouchEvent) {
-    const dx = (e.changedTouches[0]?.clientX ?? startX.current) - startX.current
-    if (axis.current === 'h') {
-      // 横フリック: 左=翌日、右=前日
-      if (Math.abs(dx) > 60) {
-        const next = addDays(new Date(date + 'T00:00:00'), dx < 0 ? 1 : -1)
-        onChangeDate(toDateStr(next))
-      }
-    } else if (dragY > 100) {
-      close()
-    } else {
-      setDragY(0)
-    }
-    axis.current = null
-  }
+  // シートの開閉・下フリックで閉じる・横フリックで前日/翌日
+  const sheet = useBottomSheet({
+    onClose: onBack,
+    onSwipeHorizontal: (dir) => {
+      const next = addDays(new Date(date + 'T00:00:00'), dir)
+      onChangeDate(toDateStr(next))
+    },
+  })
 
   const d = new Date(date + 'T00:00:00')
   const layers = data.layers.filter((l) => !l.archived)
@@ -144,25 +97,18 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
     data.reload()
   }
 
-  const open = entered && !closing
-
   return (
     <div className="fixed inset-0 z-40">
       {/* 背景: タップで閉じる */}
       <div
-        className={`absolute inset-0 bg-black/50 transition-opacity duration-250 ${open ? 'opacity-100' : 'opacity-0'}`}
-        onClick={close}
+        className={`absolute inset-0 bg-black/50 transition-opacity duration-250 ${sheet.open ? 'opacity-100' : 'opacity-0'}`}
+        onClick={sheet.close}
       />
 
       <div
         className="absolute inset-x-0 bottom-0 top-10 mx-auto flex max-w-3xl flex-col rounded-t-2xl bg-slate-900 shadow-2xl"
-        style={{
-          transform: open ? `translateY(${dragY}px)` : 'translateY(100%)',
-          transition: dragY > 0 ? 'none' : 'transform 0.25s ease-out',
-        }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        style={sheet.sheetStyle}
+        {...sheet.sheetHandlers}
       >
         {/* ドラッグハンドル */}
         <div className="flex shrink-0 justify-center pb-1 pt-2">
@@ -173,14 +119,15 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
           <h1 className="text-lg font-bold text-slate-100">
             {format(d, 'M月d日(E)', { locale: ja })}
           </h1>
-          {getHolidayName(d) && <span className="text-xs text-rose-400">{getHolidayName(d)}</span>}
+          {getHolidayName(d) && <span className="text-sm text-rose-400">{getHolidayName(d)}</span>}
           {temps[date] && (
-            <span className="text-xs text-slate-400">
-              {weatherEmoji(temps[date].code)} {temps[date].max}/{temps[date].min}°
+            <span className="flex items-center gap-1 text-base font-medium text-slate-200">
+              <span className="text-xl leading-none">{weatherEmoji(temps[date].code)}</span>
+              {temps[date].max}°/{temps[date].min}°
             </span>
           )}
           <button
-            onClick={close}
+            onClick={sheet.close}
             className="ml-auto rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
             aria-label="閉じる"
           >
@@ -188,7 +135,7 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
           </button>
         </header>
 
-        <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-10">
+        <div ref={sheet.scrollRef} className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-10">
           {/* 予定: 自分の予定(編集可)+Google予定(読み取り専用) */}
           <section>
             <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定</h2>
