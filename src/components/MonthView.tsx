@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
@@ -21,7 +21,17 @@ interface Props {
 export default function MonthView({ anchor, data, temps, onSelectDate, onMove }: Props) {
   const days = useMemo(() => fourWeekDays(anchor), [anchor])
   const today = todayStr()
-  const swipe = useHorizontalSwipe((dir) => onMove(dir * 4))
+  // 直近の移動方向(スライドインの向きに使う)
+  const [slideDir, setSlideDir] = useState<0 | 1 | -1>(0)
+  const swipe = useHorizontalSwipe((dir) => {
+    setSlideDir(dir)
+    onMove(dir * 4)
+  })
+
+  function move(dir: 1 | -1) {
+    setSlideDir(dir)
+    onMove(dir * 4)
+  }
 
   const visibleLayers = data.layers.filter((l) => !l.archived && l.visible)
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
@@ -59,11 +69,11 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
   }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries])
 
   return (
-    <div className="flex h-full flex-col" {...swipe}>
+    <div className="flex h-full flex-col" {...swipe.handlers}>
       <header className="flex items-center justify-between px-4 py-2">
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
-          onClick={() => onMove(-4)}
+          onClick={() => move(-1)}
           aria-label="前の4週間"
         >
           ◀
@@ -71,7 +81,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         <h1 className="text-lg font-bold text-slate-100">{format(anchor, 'yyyy年M月')}</h1>
         <button
           className="rounded-lg px-3 py-1 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
-          onClick={() => onMove(4)}
+          onClick={() => move(1)}
           aria-label="次の4週間"
         >
           ▶
@@ -86,8 +96,18 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         ))}
       </div>
 
-      {/* 当週(2段目)と翌週(3段目)を高めにする */}
-      <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-[1fr_1.4fr_1.4fr_1fr] gap-px overflow-hidden bg-slate-800 p-px">
+      {/* 当週(2段目)と翌週(3段目)を高めにする。
+          ドラッグ中は指に追従し、切り替え後は横からスライドイン */}
+      <div
+        key={toDateStr(anchor)}
+        className={`grid min-h-0 flex-1 grid-cols-7 grid-rows-[1fr_1.4fr_1.4fr_1fr] gap-px overflow-hidden bg-slate-800 p-px ${
+          slideDir === 1 ? 'slide-in-rtl' : slideDir === -1 ? 'slide-in-ltr' : ''
+        }`}
+        style={{
+          transform: swipe.dragX ? `translateX(${swipe.dragX * 0.4}px)` : undefined,
+          transition: swipe.dragX ? 'none' : 'transform 0.2s ease-out',
+        }}
+      >
         {days.map((d) => {
           const ds = toDateStr(d)
           return (

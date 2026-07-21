@@ -29,3 +29,31 @@ body {
     font-size: 16px !important;
   }
 }
+
+/* スワイプで週/日を切り替えたとき、新しい内容が横からスライドインする */
+@keyframes slide-in-rtl {
+  from {
+    transform: translateX(25%);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes slide-in-ltr {
+  from {
+    transform: translateX(-25%);
+    opacity: 0.2;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.slide-in-rtl {
+  animation: slide-in-rtl 0.25s ease-out;
+}
+.slide-in-ltr {
+  animation: slide-in-ltr 0.25s ease-out;
+}

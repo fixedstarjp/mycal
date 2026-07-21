@@ -30,10 +30,14 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
   const [eventFormOpen, setEventFormOpen] = useState(false)
   const [editingEvent, setEditingEvent] = useState<AppEvent | null>(null)
 
+  // 直近の日送り方向(コンテンツのスライドインに使う)
+  const [slideDir, setSlideDir] = useState<0 | 1 | -1>(0)
+
   // シートの開閉・下フリックで閉じる・横フリックで前日/翌日
   const sheet = useBottomSheet({
     onClose: onBack,
     onSwipeHorizontal: (dir) => {
+      setSlideDir(dir)
       const next = addDays(new Date(date + 'T00:00:00'), dir)
       onChangeDate(toDateStr(next))
     },
@@ -136,7 +140,13 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
           </button>
         </header>
 
-        <div ref={sheet.scrollRef} className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-10">
+        <div
+          key={date}
+          ref={sheet.scrollRef}
+          className={`flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-10 ${
+            slideDir === 1 ? 'slide-in-rtl' : slideDir === -1 ? 'slide-in-ltr' : ''
+          }`}
+        >
           {/* 予定: 自分の予定(編集可)+Google予定(読み取り専用) */}
           <section>
             <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定</h2>

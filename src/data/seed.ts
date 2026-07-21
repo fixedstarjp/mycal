@@ -17,6 +17,13 @@ export const MEAL_OPTIONS = [
   'パン',
   '白米',
   '納豆',
+  'サンドイッチ',
+  'サラダ',
+  '餃子',
+  '豆腐',
+  'アボカド',
+  'チーズ',
+  '肉まん',
 ]
 export const MOOD_OPTIONS = ['😄', '🙂', '😐', '😕', '😢']
 
@@ -75,6 +82,7 @@ export const seedLayers: Layer[] = [
     type: 'log',
     color: '#ec4899',
     config: {
+      hideNote: true,
       fields: [
         { key: 'slot', label: '時間帯', type: 'select', options: ['朝', '昼', '夜', '間食'], required: true },
         {
