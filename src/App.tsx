@@ -3,7 +3,7 @@ import { addWeeks } from 'date-fns'
 import MonthView from './components/MonthView'
 import WeekView from './components/WeekView'
 import DayDetail from './components/DayDetail'
-import LayerManager from './components/LayerManager'
+import SearchView from './components/SearchView'
 import Settings from './components/Settings'
 import Login from './components/Login'
 import { useAppData } from './useAppData'
@@ -11,7 +11,7 @@ import { useAuth } from './useAuth'
 import { isSupabaseMode } from './data/supabaseClient'
 import { fetchWeather, type TempsByDate } from './lib/weather'
 
-type View = 'month' | 'week' | 'layers' | 'settings'
+type View = 'month' | 'week' | 'search' | 'settings'
 
 interface NavItem {
   key: View
@@ -69,7 +69,7 @@ function MainApp() {
   const nav: { key: View; label: string; icon: string }[] = [
     { key: 'month', label: 'カレンダー', icon: '📅' },
     { key: 'week', label: '週', icon: '📋' },
-    { key: 'layers', label: 'レイヤー', icon: '🗂️' },
+    { key: 'search', label: '検索', icon: '🔍' },
     { key: 'settings', label: '設定', icon: '⚙️' },
   ]
 
@@ -91,8 +91,8 @@ function MainApp() {
             onSelectDate={setSelectedDate}
             onMove={(d) => setAnchor((a) => addWeeks(a, d))}
           />
-        ) : view === 'layers' ? (
-          <LayerManager data={data} />
+        ) : view === 'search' ? (
+          <SearchView onSelectDate={setSelectedDate} />
         ) : (
           <Settings data={data} />
         )}

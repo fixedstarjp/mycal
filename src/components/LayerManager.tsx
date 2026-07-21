@@ -6,7 +6,7 @@ import BottomModal from './BottomModal'
 
 const PALETTE = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#ef4444']
 
-export default function LayerManager({ data }: { data: AppData }) {
+export default function LayerManager({ data, onBack }: { data: AppData; onBack?: () => void }) {
   const [editing, setEditing] = useState<Layer | null>(null)
 
   async function toggleVisible(layer: Layer) {
@@ -35,7 +35,16 @@ export default function LayerManager({ data }: { data: AppData }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="px-4 py-3">
+      <header className="flex items-center gap-2 px-4 py-3">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="rounded-lg px-2 py-1.5 text-slate-400 hover:bg-slate-800 active:bg-slate-700"
+            aria-label="戻る"
+          >
+            ◀
+          </button>
+        )}
         <h1 className="text-lg font-bold text-slate-100">レイヤー管理</h1>
       </header>
 

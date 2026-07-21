@@ -6,12 +6,18 @@ import { isSupabaseMode } from '../data/supabaseClient'
 import { buildExportData, downloadJson } from '../lib/exportData'
 import { parseExportJson } from '../lib/importData'
 import { addIconPreset, getIconPresets, removeIconPreset } from '../lib/iconPresets'
+import LayerManager from './LayerManager'
 
 export default function Settings({ data }: { data: AppData }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const [icons, setIcons] = useState(() => getIconPresets())
   const [newIcon, setNewIcon] = useState('')
+  const [showLayers, setShowLayers] = useState(false)
+
+  if (showLayers) {
+    return <LayerManager data={data} onBack={() => setShowLayers(false)} />
+  }
 
   async function exportJson() {
     const all = await repo.exportAll()
@@ -39,6 +45,20 @@ export default function Settings({ data }: { data: AppData }) {
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-24">
+        <section>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">記録レイヤー</h2>
+          <button
+            onClick={() => setShowLayers(true)}
+            className="flex w-full items-center justify-between rounded-xl bg-slate-800/60 px-4 py-3 text-left active:bg-slate-700"
+          >
+            <span className="text-sm text-slate-200">🗂️ レイヤー管理</span>
+            <span className="text-slate-500">›</span>
+          </button>
+          <p className="mt-1 px-1 text-[10px] text-slate-600">
+            習慣・ログの追加/名前変更/色/フィールド定義/表示ON・OFF
+          </p>
+        </section>
+
         <section>
           <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">データ保存先</h2>
           <div className="rounded-xl bg-slate-800/60 p-4">
