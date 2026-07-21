@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { addDays, format } from 'date-fns'
 import type { AppEvent } from '../types'
 import { newId, repo } from '../useAppData'
-import { addOneHour } from '../lib/dates'
+import { addOneHour, toDateStr } from '../lib/dates'
 import { getIconPresets } from '../lib/iconPresets'
 import BottomModal from './BottomModal'
 import TimeSelect from './TimeSelect'
@@ -18,11 +19,20 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
   const [iconPresets] = useState(() => getIconPresets())
   const [title, setTitle] = useState(existing?.title ?? '')
   const [icon, setIcon] = useState(existing?.icon ?? '')
-  const [time, setTime] = useState(existing?.time ?? '')
-  const [endTime, setEndTime] = useState(existing?.endTime ?? '')
+  // 新規作成時のデフォルトは9:00開始・10:00終了
+  const [time, setTime] = useState(existing ? existing.time : '09:00')
+  const [endTime, setEndTime] = useState(existing ? existing.endTime : '10:00')
   const [endDate, setEndDate] = useState(existing?.endDate ?? '')
   const [note, setNote] = useState(existing?.note ?? '')
   const [error, setError] = useState('')
+
+  // 終了日の候補: 開始日から30日先まで(既存データが範囲外ならそれも含める)
+  const endDateOptions = useMemo(() => {
+    const base = new Date(date + 'T00:00:00')
+    const opts = Array.from({ length: 31 }, (_, i) => toDateStr(addDays(base, i)))
+    if (endDate && !opts.includes(endDate)) opts.push(endDate)
+    return opts
+  }, [date, endDate])
 
   async function submit() {
     if (!title.trim()) {
@@ -103,10 +113,14 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
         <p className="mt-1 text-[10px] text-slate-600">プリセットは 設定 → 予定アイコン で編集できます</p>
       </div>
 
-      {/* 時刻: スマホではみ出さないよう「開始」「終了」を縦に並べる */}
+      {/* 時刻: スマホではみ出さないよう「開始」「終了」を縦に並べる。
+          終了行は月日セレクト(日付をまたぐ予定用)を時刻の左に置く */}
       <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <span className="w-20 shrink-0 text-xs text-slate-500">開始(--=終日)</span>
+        <div className="flex items-center gap-2">
+          <span className="w-9 shrink-0 text-xs text-slate-500">開始</span>
+          <span className="w-[4.7rem] shrink-0 text-center text-base text-slate-400">
+            {format(new Date(date + 'T00:00:00'), 'M/d')}
+          </span>
           <TimeSelect
             value={time}
             onChange={(v) => {
@@ -120,22 +134,24 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
             }}
           />
         </div>
-        <div className="flex items-center gap-3">
-          <span className="w-20 shrink-0 text-xs text-slate-500">終了時刻</span>
+        <div className="flex items-center gap-2">
+          <span className="w-9 shrink-0 text-xs text-slate-500">終了</span>
+          <select
+            value={endDate || date}
+            onChange={(e) => setEndDate(e.target.value === date ? '' : e.target.value)}
+            className="w-[4.7rem] shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-1 py-2.5 text-center text-base text-slate-200"
+            aria-label="終了日"
+          >
+            {endDateOptions.map((d) => (
+              <option key={d} value={d}>
+                {format(new Date(d + 'T00:00:00'), 'M/d')}
+              </option>
+            ))}
+          </select>
           <TimeSelect value={endTime} disabled={!time} onChange={setEndTime} />
         </div>
+        <p className="text-[10px] text-slate-600">時刻を「--」にすると終日。終了の月日を変えると連日の予定になります</p>
       </div>
-
-      <label className="block">
-        <span className="mb-1 block text-xs text-slate-500">終了日(日付をまたぐ予定のみ)</span>
-        <input
-          type="date"
-          value={endDate}
-          min={date}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-base text-slate-200"
-        />
-      </label>
 
       <label className="block">
         <span className="mb-1 block text-xs text-slate-500">メモ(任意)</span>

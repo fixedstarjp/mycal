@@ -21,6 +21,7 @@ export function useBottomSheet({
   const [entered, setEntered] = useState(false)
   const [closing, setClosing] = useState(false)
   const [dragY, setDragY] = useState(0)
+  const [dragX, setDragX] = useState(0)
   const startX = useRef(0)
   const startY = useRef(0)
   const axis = useRef<'h' | 'v' | null>(null)
@@ -54,6 +55,8 @@ export function useBottomSheet({
       axis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
     }
     if (axis.current === 'v' && canDragSheet.current && dy > 0) setDragY(dy)
+    // 横ドラッグ中は指に追従(日送りがあるときだけ)
+    if (axis.current === 'h' && onSwipeHorizontal) setDragX(dx)
   }
 
   function onTouchEnd(e: React.TouchEvent) {
@@ -62,6 +65,7 @@ export function useBottomSheet({
       if (onSwipeHorizontal && Math.abs(dx) > horizontalThreshold) {
         onSwipeHorizontal(dx < 0 ? 1 : -1)
       }
+      setDragX(0)
     } else if (dragY > closeThreshold) {
       close()
     } else {
@@ -71,9 +75,10 @@ export function useBottomSheet({
   }
 
   const open = entered && !closing
+  const dragging = dragY > 0 || dragX !== 0
   const sheetStyle: CSSProperties = {
-    transform: open ? `translateY(${dragY}px)` : 'translateY(100%)',
-    transition: dragY > 0 ? 'none' : 'transform 0.25s ease-out',
+    transform: open ? `translate(${dragX * 0.4}px, ${dragY}px)` : 'translateY(100%)',
+    transition: dragging ? 'none' : 'transform 0.25s ease-out',
   }
 
   return {
