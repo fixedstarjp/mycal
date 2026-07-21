@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
 import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
 import { isAchieved } from '../lib/stats'
+import { eventDates } from '../lib/events'
 import type { TempsByDate } from '../lib/weather'
 import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe'
 import DayCell, { type DayCellInfo } from './DayCell'
@@ -38,7 +39,10 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
       return v
     }
     for (const ev of data.events) {
-      get(ev.date).appEvents.push({ icon: ev.icon, title: ev.title })
+      // 複数日予定は開始日〜終了日のすべての日に表示する
+      for (const ds of eventDates(ev)) {
+        get(ds).appEvents.push({ icon: ev.icon, title: ev.title })
+      }
     }
     for (const ev of data.gcalEvents) {
       const d = ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))

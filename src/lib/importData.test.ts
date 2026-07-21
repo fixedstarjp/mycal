@@ -68,7 +68,7 @@ describe('planImport (予定)', () => {
   it('予定はIDを再採番して取り込む', () => {
     const data = exportData({
       events: [
-        { id: 'ev1', date: '2026-07-20', time: '10:00', endTime: '', title: '歯医者', icon: '🏥', note: '' },
+        { id: 'ev1', date: '2026-07-20', endDate: '', time: '10:00', endTime: '', title: '歯医者', icon: '🏥', note: '' },
       ],
     })
     const plan = planImport([], data, makeIdgen())

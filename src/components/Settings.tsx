@@ -5,10 +5,13 @@ import { signOut } from '../useAuth'
 import { isSupabaseMode } from '../data/supabaseClient'
 import { buildExportData, downloadJson } from '../lib/exportData'
 import { parseExportJson } from '../lib/importData'
+import { addIconPreset, getIconPresets, removeIconPreset } from '../lib/iconPresets'
 
 export default function Settings({ data }: { data: AppData }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
+  const [icons, setIcons] = useState(() => getIconPresets())
+  const [newIcon, setNewIcon] = useState('')
 
   async function exportJson() {
     const all = await repo.exportAll()
@@ -75,6 +78,50 @@ export default function Settings({ data }: { data: AppData }) {
             >
               Googleアカウントを接続(準備中)
             </button>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">予定アイコン</h2>
+          <div className="rounded-xl bg-slate-800/60 p-4">
+            <p className="text-sm text-slate-400">
+              予定フォームに表示するアイコンの候補です。タップで削除、下の欄から追加できます。
+            </p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {icons.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => {
+                    if (!confirm(`アイコン ${emoji} を候補から削除しますか?`)) return
+                    setIcons(removeIconPreset(emoji))
+                  }}
+                  className="rounded-lg bg-slate-800 px-2 py-1 text-lg active:bg-rose-900"
+                  title="タップで削除"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={newIcon}
+                onChange={(e) => setNewIcon(e.target.value.trim())}
+                placeholder="絵文字を入力"
+                maxLength={4}
+                className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-center text-base text-slate-200"
+              />
+              <button
+                onClick={() => {
+                  if (!newIcon) return
+                  setIcons(addIconPreset(newIcon))
+                  setNewIcon('')
+                }}
+                className="shrink-0 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-bold text-white active:bg-sky-500"
+              >
+                追加
+              </button>
+            </div>
+            <p className="mt-2 text-[10px] text-slate-600">※この設定は端末ごとに保存されます</p>
           </div>
         </section>
 

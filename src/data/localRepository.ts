@@ -110,7 +110,11 @@ export class LocalStorageRepository implements Repository {
 
   async getEvents(dateFrom: string, dateTo: string): Promise<AppEvent[]> {
     return load<AppEvent[]>(KEYS.events, [])
-      .filter((e) => inRange(e.date, dateFrom, dateTo))
+      .filter((e) => {
+        // 複数日予定: 期間が表示範囲と少しでも重なれば返す
+        const end = e.endDate && e.endDate >= e.date ? e.endDate : e.date
+        return e.date <= dateTo && end >= dateFrom
+      })
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   }
 

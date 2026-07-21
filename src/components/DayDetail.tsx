@@ -7,6 +7,7 @@ import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
+import { eventEndDate, eventOccursOn } from '../lib/events'
 import { weatherEmoji, type TempsByDate } from '../lib/weather'
 import { useBottomSheet } from '../hooks/useBottomSheet'
 import LogEntryForm from './LogEntryForm'
@@ -46,9 +47,9 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
   const events = data.gcalEvents
     .filter((ev) => (ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))) === date)
     .sort((a, b) => a.startAt.localeCompare(b.startAt))
-  // 終日('')が先、あとは時刻順
+  // 終日('')が先、あとは時刻順。複数日予定は期間内のすべての日に表示
   const dayEvents = data.events
-    .filter((e) => e.date === date)
+    .filter((e) => eventOccursOn(e, date))
     .sort((a, b) => a.time.localeCompare(b.time))
   const dayLogs = data.logEntries.filter((e) => e.date === date)
 
@@ -151,6 +152,12 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
                     <span className="truncate text-sm text-slate-100">
                       {ev.icon && <span className="mr-1">{ev.icon}</span>}
                       {ev.title}
+                      {ev.endDate && ev.endDate !== ev.date && (
+                        <span className="ml-1 text-xs text-slate-500">
+                          ({format(new Date(ev.date + 'T00:00:00'), 'M/d')}〜
+                          {format(new Date(eventEndDate(ev) + 'T00:00:00'), 'M/d')})
+                        </span>
+                      )}
                     </span>
                     <span className="ml-auto flex shrink-0 gap-2">
                       <button

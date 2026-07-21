@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Layer, LogEntry } from '../types'
 import { newId, repo } from '../useAppData'
 import BottomModal from './BottomModal'
+import TimeSelect from './TimeSelect'
 
 interface Props {
   date: string
@@ -22,7 +23,24 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
     const init: Record<string, string> = {}
     for (const f of fields) {
       const v = existing?.data[f.key]
-      init[f.key] = v !== undefined ? String(v) : f.type === 'select' ? (f.options?.[0] ?? '') : ''
+      if (f.type === 'multiselect') {
+        // 選択肢に含まれるものだけチップ選択に、残りは「その他」欄へ
+        const list = v !== undefined ? String(v).split(',') : []
+        init[f.key] = list.filter((o) => f.options?.includes(o)).join(',')
+      } else {
+        init[f.key] = v !== undefined ? String(v) : f.type === 'select' ? (f.options?.[0] ?? '') : ''
+      }
+    }
+    return init
+  })
+  // multiselectの「その他」自由入力(カンマ区切りで複数可)
+  const [others, setOthers] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {}
+    for (const f of fields) {
+      if (f.type !== 'multiselect') continue
+      const v = existing?.data[f.key]
+      const list = v !== undefined ? String(v).split(',') : []
+      init[f.key] = list.filter((o) => !f.options?.includes(o)).join(',')
     }
     return init
   })
@@ -39,9 +57,20 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
     })
   }
 
+  // チップ選択+その他入力を結合した最終値
+  function finalValue(f: (typeof fields)[number]): string {
+    if (f.type !== 'multiselect') return values[f.key]
+    const chips = values[f.key] ? values[f.key].split(',') : []
+    const free = (others[f.key] ?? '')
+      .split(/[、,]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    return [...chips, ...free].join(',')
+  }
+
   async function submit() {
     for (const f of fields) {
-      if (f.required && !values[f.key]) {
+      if (f.required && !finalValue(f)) {
         setError(`「${f.label}」を入力してください`)
         return
       }
@@ -52,8 +81,9 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
     }
     const dataObj: Record<string, string | number> = {}
     for (const f of fields) {
-      if (values[f.key] === '') continue
-      dataObj[f.key] = f.type === 'number' ? Number(values[f.key]) : values[f.key]
+      const v = finalValue(f)
+      if (v === '') continue
+      dataObj[f.key] = f.type === 'number' ? Number(v) : v
     }
     await repo.saveLogEntry({
       id: existing?.id ?? newId(),
@@ -78,10 +108,10 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
       onClose={onClose}
       onSubmit={submit}
     >
-      <label className="block">
-        <span className="mb-1 block text-xs text-slate-500">時刻(任意)</span>
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={INPUT} />
-      </label>
+      <div className="flex items-center gap-3">
+        <span className="w-20 shrink-0 text-xs text-slate-500">時刻(任意)</span>
+        <TimeSelect value={time} onChange={setTime} />
+      </div>
 
       {fields.map((f) => (
         <label key={f.key} className="block">
@@ -106,22 +136,30 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
               ))}
             </div>
           ) : f.type === 'multiselect' ? (
-            <div className="flex flex-wrap gap-2">
-              {(f.options ?? []).map((opt) => {
-                const selected = (values[f.key] ? values[f.key].split(',') : []).includes(opt)
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => toggleMulti(f.key, opt)}
-                    className={`rounded-full px-4 py-2 text-base ${
-                      selected ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                )
-              })}
+            <div>
+              <div className="flex flex-wrap gap-2">
+                {(f.options ?? []).map((opt) => {
+                  const selected = (values[f.key] ? values[f.key].split(',') : []).includes(opt)
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => toggleMulti(f.key, opt)}
+                      className={`rounded-full px-4 py-2 text-base ${
+                        selected ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+              <input
+                value={others[f.key] ?? ''}
+                onChange={(e) => setOthers((o) => ({ ...o, [f.key]: e.target.value }))}
+                placeholder="その他(自由入力、カンマ区切りで複数)"
+                className={`${INPUT} mt-2`}
+              />
             </div>
           ) : f.type === 'textarea' ? (
             <textarea

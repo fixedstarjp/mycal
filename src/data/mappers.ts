@@ -114,6 +114,7 @@ export function logToRow(e: LogEntry): LogEntryRow {
 export interface AppEventRow {
   id: string
   date: string
+  end_date: string | null // 単日予定はnull
   time: string
   end_time: string
   title: string
@@ -125,6 +126,7 @@ export function eventFromRow(r: AppEventRow): AppEvent {
   return {
     id: r.id,
     date: r.date,
+    endDate: r.end_date ?? '',
     time: r.time ?? '',
     endTime: r.end_time ?? '',
     title: r.title,
@@ -137,6 +139,7 @@ export function eventToRow(e: AppEvent): AppEventRow {
   return {
     id: e.id,
     date: e.date,
+    end_date: e.endDate || null,
     time: e.time,
     end_time: e.endTime,
     title: e.title,
