@@ -120,11 +120,12 @@ export class SupabaseRepository implements Repository {
   }
 
   async getEvents(dateFrom: string, dateTo: string): Promise<AppEvent[]> {
+    // 複数日予定: 開始が範囲前でも終了日が範囲にかかっていれば取得する
     const { data, error } = await this.client
       .from('events')
-      .select('id,date,time,end_time,title,icon,note')
-      .gte('date', dateFrom)
+      .select('id,date,end_date,time,end_time,title,icon,note')
       .lte('date', dateTo)
+      .or(`date.gte.${dateFrom},end_date.gte.${dateFrom}`)
       .order('date')
       .order('time')
     if (error) {
@@ -133,13 +134,32 @@ export class SupabaseRepository implements Repository {
         console.warn('eventsテーブルが未作成です。supabase/migrations/002_events.sql を実行してください。')
         return []
       }
+      // 003_event_end_date.sql 未適用の間は単日予定として取得(undefined_column)
+      if (error.code === '42703') {
+        console.warn('end_date列がありません。supabase/migrations/003_event_end_date.sql を実行してください。')
+        const fallback = await this.client
+          .from('events')
+          .select('id,date,time,end_time,title,icon,note')
+          .gte('date', dateFrom)
+          .lte('date', dateTo)
+          .order('date')
+          .order('time')
+        if (fallback.error) throw fallback.error
+        return (fallback.data as AppEventRow[]).map(eventFromRow)
+      }
       throw error
     }
     return (data as AppEventRow[]).map(eventFromRow)
   }
 
   async saveEvent(event: AppEvent): Promise<void> {
-    const { error } = await this.client.from('events').upsert(eventToRow(event))
+    const row = eventToRow(event)
+    let { error } = await this.client.from('events').upsert(row)
+    if (error?.code === '42703') {
+      // end_date列が未適用の間は単日予定として保存
+      const { end_date: _endDate, ...rest } = row
+      ;({ error } = await this.client.from('events').upsert(rest))
+    }
     if (error) throw error
   }
 
@@ -153,7 +173,7 @@ export class SupabaseRepository implements Repository {
       this.client.from('layers').select('id,name,type,color,config,sort_order,archived,visible'),
       this.client.from('habit_entries').select('id,layer_id,date,value_bool,value_num,note'),
       this.client.from('log_entries').select('id,layer_id,date,time,data,note'),
-      this.client.from('events').select('id,date,time,end_time,title,icon,note'),
+      this.client.from('events').select('id,date,end_date,time,end_time,title,icon,note'),
     ])
     for (const res of [layersRes, habitsRes, logsRes, eventsRes]) {
       if (res.error) throw res.error

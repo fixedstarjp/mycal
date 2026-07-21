@@ -3,6 +3,7 @@ import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { toDateStr, todayStr, weekDays } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
+import { eventOccursOn } from '../lib/events'
 import { isAchieved } from '../lib/stats'
 
 interface Props {
@@ -47,7 +48,7 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
             .filter((ev) => (ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))) === ds)
             .sort((a, b) => a.startAt.localeCompare(b.startAt))
           const appEvents = data.events
-            .filter((e) => e.date === ds)
+            .filter((e) => eventOccursOn(e, ds))
             .sort((a, b) => a.time.localeCompare(b.time))
           const habits = layers.filter(
             (l) =>

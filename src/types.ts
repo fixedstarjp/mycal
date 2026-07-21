@@ -64,7 +64,8 @@ export interface GcalEvent {
 // アプリ内で完結する自分の予定(Googleカレンダーには反映しない)
 export interface AppEvent {
   id: string
-  date: string // YYYY-MM-DD
+  date: string // YYYY-MM-DD (開始日)
+  endDate: string // YYYY-MM-DD ('' = 単日。日付をまたぐ予定は終了日を持つ)
   time: string // HH:mm ('' = 終日)
   endTime: string // HH:mm ('' 可)
   title: string

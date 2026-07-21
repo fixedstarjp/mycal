@@ -57,6 +57,7 @@ describe('mappers', () => {
     const event: AppEvent = {
       id: 'uuid-4',
       date: '2026-07-20',
+      endDate: '',
       time: '10:00',
       endTime: '11:00',
       title: '歯医者',
@@ -65,6 +66,23 @@ describe('mappers', () => {
     }
     expect(eventFromRow(eventToRow(event))).toEqual(event)
     expect(eventToRow(event).end_time).toBe('11:00')
+  })
+
+  it('event: 複数日予定はendDate⇔end_date、単日はnullで保存', () => {
+    const multi: AppEvent = {
+      id: 'uuid-5',
+      date: '2026-07-20',
+      endDate: '2026-07-22',
+      time: '',
+      endTime: '',
+      title: '出張',
+      icon: '✈️',
+      note: '',
+    }
+    expect(eventToRow(multi).end_date).toBe('2026-07-22')
+    expect(eventFromRow(eventToRow(multi))).toEqual(multi)
+    expect(eventToRow({ ...multi, endDate: '' }).end_date).toBeNull()
+    expect(eventFromRow({ ...eventToRow(multi), end_date: null }).endDate).toBe('')
   })
 
   it('habit: numericが文字列で返ってもnumberに変換する', () => {
