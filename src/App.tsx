@@ -94,7 +94,7 @@ function MainApp() {
             onMove={(d) => setAnchor((a) => addWeeks(a, d))}
           />
         ) : view === 'todo' ? (
-          <TodoView data={data} onSelectDate={setSelectedDate} />
+          <TodoView data={data} />
         ) : view === 'search' ? (
           <SearchView onSelectDate={setSelectedDate} />
         ) : (

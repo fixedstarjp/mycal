@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isOverdue, sortTodos, todosOnDate } from './todos'
+import { dueChips, formatDue, isOverdue, sortTodos, todosOnDate } from './todos'
 import type { Todo } from '../types'
 
 function todo(over: Partial<Todo> & { id: string }): Todo {
@@ -53,6 +53,24 @@ describe('todosOnDate', () => {
 
   it('期日なしはどの日にも出ない', () => {
     expect(todosOnDate([todo({ id: 'z' })], '2026-07-25')).toEqual([])
+  })
+})
+
+describe('dueChips', () => {
+  it('今日から7日分。0=今日,1=明日,以降はd(E)', () => {
+    const chips = dueChips('2026-07-22') // 水曜
+    expect(chips).toHaveLength(7)
+    expect(chips[0]).toEqual({ label: '今日', value: '2026-07-22' })
+    expect(chips[1]).toEqual({ label: '明日', value: '2026-07-23' })
+    expect(chips[2].value).toBe('2026-07-24')
+    expect(chips[2].label).toBe('24(金)')
+  })
+})
+
+describe('formatDue', () => {
+  it('M/d(E)形式。空は期日なし', () => {
+    expect(formatDue('2026-07-24')).toBe('7/24(金)')
+    expect(formatDue('')).toBe('期日なし')
   })
 })
 

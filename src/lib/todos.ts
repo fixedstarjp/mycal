@@ -1,4 +1,23 @@
+import { addDays, format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 import type { Todo } from '../types'
+import { toDateStr } from './dates'
+
+// 期日チップの選択肢: 今日から7日間。今日/明日はラベル、以降は「d(E)」
+export function dueChips(today: string): { label: string; value: string }[] {
+  const base = new Date(today + 'T00:00:00')
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = addDays(base, i)
+    const label = i === 0 ? '今日' : i === 1 ? '明日' : format(d, 'd(E)', { locale: ja })
+    return { label, value: toDateStr(d) }
+  })
+}
+
+// 期日の表示("7/24(金)"形式)。'' は '期日なし'
+export function formatDue(date: string): string {
+  if (!date) return '期日なし'
+  return format(new Date(date + 'T00:00:00'), 'M/d(E)', { locale: ja })
+}
 
 // 表示順:
 //   未完了 → 完了 の順。

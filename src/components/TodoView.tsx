@@ -1,50 +1,28 @@
 import { useMemo, useState } from 'react'
-import { addDays, format } from 'date-fns'
-import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
 import type { Todo } from '../types'
-import { isOverdue, sortTodos } from '../lib/todos'
-import { toDateStr, todayStr } from '../lib/dates'
+import { dueChips, formatDue, isOverdue, sortTodos } from '../lib/todos'
+import { todayStr } from '../lib/dates'
 
-interface Props {
-  data: AppData
-  onSelectDate: (date: string) => void
-}
-
-export default function TodoView({ data, onSelectDate }: Props) {
+export default function TodoView({ data }: { data: AppData }) {
   const [title, setTitle] = useState('')
   const [showDone, setShowDone] = useState(false)
+  // 期日ピッカーを開いているToDoのid、および「その他(カレンダー)」入力中のid
+  const [editingDueId, setEditingDueId] = useState<string | null>(null)
+  const [otherDueId, setOtherDueId] = useState<string | null>(null)
   const today = todayStr()
+  const chips = useMemo(() => dueChips(today), [today])
 
   const sorted = useMemo(() => sortTodos(data.todos), [data.todos])
   const undone = sorted.filter((t) => !t.done)
   const done = sorted.filter((t) => t.done)
 
-  // 期日の候補: なし / 今日 / 明日 / 1週間後 …(あとから個別に変更できる)
-  const dueOptions = useMemo(() => {
-    const base = new Date(today + 'T00:00:00')
-    return [
-      { label: '期日なし', value: '' },
-      { label: '今日', value: today },
-      { label: '明日', value: toDateStr(addDays(base, 1)) },
-      { label: '今週末', value: toDateStr(addDays(base, 6 - base.getDay())) },
-      { label: '来週', value: toDateStr(addDays(base, 7)) },
-    ]
-  }, [today])
-
   async function add() {
     const t = title.trim()
     if (!t) return
     const maxOrder = Math.max(0, ...data.todos.map((x) => x.sortOrder))
-    await repo.saveTodo({
-      id: newId(),
-      title: t,
-      note: '',
-      dueDate: '',
-      done: false,
-      sortOrder: maxOrder + 1,
-    })
+    await repo.saveTodo({ id: newId(), title: t, note: '', dueDate: '', done: false, sortOrder: maxOrder + 1 })
     setTitle('')
     data.reload()
   }
@@ -55,6 +33,8 @@ export default function TodoView({ data, onSelectDate }: Props) {
   }
 
   async function setDue(todo: Todo, dueDate: string) {
+    setEditingDueId(null)
+    setOtherDueId(null)
     await repo.saveTodo({ ...todo, dueDate })
     data.reload()
   }
@@ -67,59 +47,81 @@ export default function TodoView({ data, onSelectDate }: Props) {
 
   function row(todo: Todo) {
     const overdue = isOverdue(todo, today)
+    const editing = editingDueId === todo.id
     return (
       <li key={todo.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
         <div className="flex items-center gap-3">
           <button
             onClick={() => toggleDone(todo)}
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
-              todo.done
-                ? 'border-sky-500 bg-sky-500 text-white'
-                : 'border-slate-600 text-transparent'
+              todo.done ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-600 text-transparent'
             }`}
             aria-label={`${todo.title}を完了に切り替え`}
           >
             ✓
           </button>
-          <span
-            className={`flex-1 text-sm ${todo.done ? 'text-slate-500 line-through' : 'text-slate-100'}`}
-          >
+          <span className={`flex-1 text-sm ${todo.done ? 'text-slate-500 line-through' : 'text-slate-100'}`}>
             {todo.title}
           </span>
+          {!todo.done && (
+            <button
+              onClick={() => {
+                setEditingDueId(editing ? null : todo.id)
+                setOtherDueId(null)
+              }}
+              className={`shrink-0 rounded-full px-2 py-1 text-xs ${
+                overdue
+                  ? 'bg-rose-900/60 text-rose-300'
+                  : todo.dueDate
+                    ? 'bg-slate-700 text-sky-300'
+                    : 'bg-slate-800 text-slate-500'
+              }`}
+            >
+              📅 {formatDue(todo.dueDate)}
+              {overdue ? '・期限切れ' : ''}
+            </button>
+          )}
           <button onClick={() => remove(todo)} className="shrink-0 text-xs text-rose-400">
             削除
           </button>
         </div>
 
-        {!todo.done && (
-          <div className="mt-1.5 flex items-center gap-2 pl-10">
-            <select
-              value={todo.dueDate}
-              onChange={(e) => setDue(todo, e.target.value)}
-              className={`rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs ${
-                overdue ? 'text-rose-400' : todo.dueDate ? 'text-sky-300' : 'text-slate-500'
-              }`}
-              aria-label="期日"
-            >
-              {/* 既存の期日が候補にない場合も選択肢に出す */}
-              {!dueOptions.some((o) => o.value === todo.dueDate) && todo.dueDate && (
-                <option value={todo.dueDate}>
-                  {format(new Date(todo.dueDate + 'T00:00:00'), 'M/d(E)', { locale: ja })}
-                </option>
-              )}
-              {dueOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            {todo.dueDate && (
+        {/* 期日ピッカー: 7日間チップ + なし + その他(カレンダー) */}
+        {editing && (
+          <div className="mt-2 flex flex-wrap gap-1.5 pl-10">
+            {chips.map((c) => (
               <button
-                onClick={() => onSelectDate(todo.dueDate)}
-                className={`text-xs ${overdue ? 'text-rose-400' : 'text-slate-400'}`}
+                key={c.value}
+                onClick={() => setDue(todo, c.value)}
+                className={`rounded-full px-3 py-1.5 text-sm ${
+                  todo.dueDate === c.value ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-300'
+                }`}
               >
-                {format(new Date(todo.dueDate + 'T00:00:00'), 'M/d(E)', { locale: ja })}
-                {overdue ? ' (期限切れ)' : ''}
+                {c.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setDue(todo, '')}
+              className={`rounded-full px-3 py-1.5 text-sm ${
+                todo.dueDate === '' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              なし
+            </button>
+            {otherDueId === todo.id ? (
+              <input
+                type="date"
+                defaultValue={todo.dueDate || undefined}
+                autoFocus
+                onChange={(e) => e.target.value && setDue(todo, e.target.value)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-200"
+              />
+            ) : (
+              <button
+                onClick={() => setOtherDueId(todo.id)}
+                className="rounded-full bg-slate-800 px-3 py-1.5 text-sm text-slate-400"
+              >
+                その他
               </button>
             )}
           </div>
