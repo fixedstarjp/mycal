@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
-import type { FieldDef, FieldType, Layer } from '../types'
+import type { FieldDef, FieldType, HabitMenu, Layer } from '../types'
 import BottomModal from './BottomModal'
 
 const PALETTE = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#ef4444']
@@ -123,6 +123,7 @@ function LayerEditForm({
   const [habitKind, setHabitKind] = useState(layer.config.habitKind ?? 'bool')
   const [habitUnit, setHabitUnit] = useState(layer.config.habitUnit ?? '')
   const [fields, setFields] = useState<FieldDef[]>(layer.config.fields ?? [])
+  const [menus, setMenus] = useState<HabitMenu[]>(layer.config.menus ?? [])
   const [error, setError] = useState('')
 
   function updateField(i: number, patch: Partial<FieldDef>) {
@@ -131,6 +132,10 @@ function LayerEditForm({
 
   function addField() {
     setFields((fs) => [...fs, { key: `field_${fs.length + 1}`, label: '', type: 'text' }])
+  }
+
+  function updateMenu(i: number, patch: Partial<HabitMenu>) {
+    setMenus((ms) => ms.map((m, j) => (j === i ? { ...m, ...patch } : m)))
   }
 
   async function submit() {
@@ -142,13 +147,21 @@ function LayerEditForm({
       setError('フィールド名を入力してください')
       return
     }
+    if (layer.type === 'habit' && menus.some((m) => !m.name.trim())) {
+      setError('メニュー名を入力してください')
+      return
+    }
     await repo.saveLayer({
       ...layer,
       name: name.trim(),
       color,
       config:
         layer.type === 'habit'
-          ? { habitKind, habitUnit: habitUnit || undefined }
+          ? {
+              habitKind,
+              habitUnit: habitUnit || undefined,
+              menus: menus.length > 0 ? menus.map((m) => ({ ...m, name: m.name.trim() })) : undefined,
+            }
           : {
               // hideNote等の既存設定は編集フォームで触らないため引き継ぐ
               ...layer.config,
@@ -220,6 +233,50 @@ function LayerEditForm({
                   />
                 </label>
               )}
+
+              {/* メニュー: 例) A=腹筋・ベンチプレス / B=デッドリフト・腕 */}
+              <div className="space-y-2 pt-2">
+                <span className="block text-xs text-slate-500">
+                  メニュー(任意) — 記録時にA/Bなどを選べます
+                </span>
+                {menus.map((m, i) => (
+                  <div key={i} className="space-y-1.5 rounded-lg border border-slate-800 p-2">
+                    <div className="flex gap-2">
+                      <input
+                        value={m.name}
+                        placeholder="A"
+                        onChange={(e) => updateMenu(i, { name: e.target.value })}
+                        className="w-20 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+                      />
+                      <button
+                        onClick={() => setMenus((ms) => ms.filter((_, j) => j !== i))}
+                        className="ml-auto text-xs text-rose-400"
+                      >
+                        削除
+                      </button>
+                    </div>
+                    <input
+                      value={m.items.join('・')}
+                      placeholder="内容を「・」か「,」区切りで(例: 腹筋・ベンチプレス)"
+                      onChange={(e) =>
+                        updateMenu(i, {
+                          items: e.target.value
+                            .split(/[・,、]/)
+                            .map((s) => s.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                      className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-slate-200"
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={() => setMenus((ms) => [...ms, { name: '', items: [] }])}
+                  className="text-sm text-sky-400"
+                >
+                  + メニュー追加
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-2">

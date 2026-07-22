@@ -14,10 +14,18 @@ export interface FieldDef {
 
 export type HabitValueKind = 'bool' | 'number'
 
+// 習慣のメニュー(例: 筋トレのAセット=腹筋・ベンチプレス)。
+// 記録時にどのメニューをやったか選べる
+export interface HabitMenu {
+  name: string
+  items: string[]
+}
+
 export interface LayerConfig {
   // habit型: bool(やった/やらない) or number(読書30分など)
   habitKind?: HabitValueKind
   habitUnit?: string // 数値習慣の単位(分、セット等)
+  menus?: HabitMenu[] // habit型: A/Bセットなどのメニュー(任意)
   // log型: フィールド定義
   fields?: FieldDef[]
   hideNote?: boolean // log型でメモ欄を隠す(日記など内容欄で完結する場合)
