@@ -37,7 +37,7 @@ describe('parseOpenMeteoDaily', () => {
         temperature_2m_max: [33.6, 30.2],
         temperature_2m_min: [25.4, 24.8],
         weathercode: [0, 61],
-        precipitation_probability_max: [10, 80.4],
+        precipitation_probability_mean: [10, 80.4],
       },
     })
     expect(byDate['2026-07-19']).toEqual({ max: 34, min: 25, code: 0, pop: 10 })

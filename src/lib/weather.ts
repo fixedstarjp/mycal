@@ -24,7 +24,8 @@ export function weatherEmoji(code: number | undefined): string {
 
 export type TempsByDate = Record<string, DayTemp>
 
-const CACHE_KEY = 'mycal.weather'
+// 降水確率をmax→meanに変更したため、旧キャッシュを使わないようキーを更新
+const CACHE_KEY = 'mycal.weather.v2'
 const TTL_MS = 6 * 60 * 60 * 1000 // 6時間
 const FALLBACK = { lat: 35.68, lon: 139.76 } // 位置情報が取れない場合は東京
 
@@ -72,7 +73,9 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
   const { lat, lon } = await getPosition()
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max` +
+    // 降水確率は「その日の平均」を使う。max(その日の最大)は雨量0mmでも
+    // 100%になることがあり、天気予報の感覚と大きくズレるため
+    `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_mean` +
     `&timezone=auto&forecast_days=7`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`)
@@ -93,7 +96,7 @@ export function parseOpenMeteoDaily(json: {
     temperature_2m_max?: number[]
     temperature_2m_min?: number[]
     weathercode?: number[]
-    precipitation_probability_max?: number[]
+    precipitation_probability_mean?: number[]
   }
 }): TempsByDate {
   const byDate: TempsByDate = {}
@@ -101,7 +104,7 @@ export function parseOpenMeteoDaily(json: {
   const max = json.daily?.temperature_2m_max ?? []
   const min = json.daily?.temperature_2m_min ?? []
   const codes = json.daily?.weathercode ?? []
-  const pops = json.daily?.precipitation_probability_max ?? []
+  const pops = json.daily?.precipitation_probability_mean ?? []
   for (let i = 0; i < time.length; i++) {
     if (typeof max[i] === 'number' && typeof min[i] === 'number') {
       byDate[time[i]] = {
