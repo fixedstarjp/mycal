@@ -4,8 +4,12 @@ export interface DayTemp {
   max: number
   min: number
   code?: number // WMO weather code
-  pop?: number // 降水確率(%)
+  pop?: number // 降水確率(その日の平均, %)
+  pops6?: (number | null)[] // 6時間ごとの降水確率 [0-6, 6-12, 12-18, 18-24](データなしはnull)
 }
+
+// 6時間区分のラベル(0時起点)
+export const POP6_LABELS = ['0-6', '6-12', '12-18', '18-24']
 
 // WMO weather code → 絵文字(https://open-meteo.com/en/docs のweathercode表)
 export function weatherEmoji(code: number | undefined): string {
@@ -61,8 +65,8 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
       const cache = JSON.parse(raw) as Cache
       const fresh = Date.now() - new Date(cache.fetchedAt).getTime() < TTL_MS
       const today = cache.byDate[toDateStr(new Date())]
-      // 旧形式キャッシュ(天気コード・降水確率なし)は取得し直す
-      if (fresh && today && typeof today.code === 'number' && typeof today.pop === 'number') {
+      // 旧形式キャッシュ(天気コード・降水確率・6時間別なし)は取得し直す
+      if (fresh && today && typeof today.code === 'number' && typeof today.pop === 'number' && today.pops6) {
         return cache.byDate
       }
     }
@@ -76,6 +80,8 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
     // 降水確率は「その日の平均」を使う。max(その日の最大)は雨量0mmでも
     // 100%になることがあり、天気予報の感覚と大きくズレるため
     `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_mean` +
+    // 6時間ごと(0-6/6-12/12-18/18-24)の降水確率を出すため時間別も取得する
+    `&hourly=precipitation_probability` +
     `&timezone=auto&forecast_days=7`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`)
@@ -89,6 +95,39 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
   return byDate
 }
 
+// 時間別の降水確率を6時間ごと(0-6/6-12/12-18/18-24)の平均にまとめる。
+// timezone=auto なので hourly.time はローカル時刻("2026-07-22T13:00")として扱える。
+// 各区分の最大値ではなく平均を使う(最大は雨量0mmでも100%になりやすいため)
+export function aggregatePop6(hourly: {
+  time?: string[]
+  precipitation_probability?: (number | null)[]
+}): Record<string, (number | null)[]> {
+  const sums: Record<string, { sum: number; n: number }[]> = {}
+  const time = hourly.time ?? []
+  const probs = hourly.precipitation_probability ?? []
+  for (let i = 0; i < time.length; i++) {
+    const p = probs[i]
+    if (typeof p !== 'number') continue
+    const [day, clock] = time[i].split('T')
+    if (!day || !clock) continue
+    const block = Math.floor(Number(clock.slice(0, 2)) / 6)
+    if (!(block >= 0 && block <= 3)) continue
+    sums[day] ??= [
+      { sum: 0, n: 0 },
+      { sum: 0, n: 0 },
+      { sum: 0, n: 0 },
+      { sum: 0, n: 0 },
+    ]
+    sums[day][block].sum += p
+    sums[day][block].n += 1
+  }
+  const out: Record<string, (number | null)[]> = {}
+  for (const [day, blocks] of Object.entries(sums)) {
+    out[day] = blocks.map((b) => (b.n > 0 ? Math.round(b.sum / b.n) : null))
+  }
+  return out
+}
+
 // テスト可能な純粋関数として分離
 export function parseOpenMeteoDaily(json: {
   daily?: {
@@ -98,6 +137,10 @@ export function parseOpenMeteoDaily(json: {
     weathercode?: number[]
     precipitation_probability_mean?: number[]
   }
+  hourly?: {
+    time?: string[]
+    precipitation_probability?: (number | null)[]
+  }
 }): TempsByDate {
   const byDate: TempsByDate = {}
   const time = json.daily?.time ?? []
@@ -105,6 +148,7 @@ export function parseOpenMeteoDaily(json: {
   const min = json.daily?.temperature_2m_min ?? []
   const codes = json.daily?.weathercode ?? []
   const pops = json.daily?.precipitation_probability_mean ?? []
+  const pops6 = json.hourly ? aggregatePop6(json.hourly) : {}
   for (let i = 0; i < time.length; i++) {
     if (typeof max[i] === 'number' && typeof min[i] === 'number') {
       byDate[time[i]] = {
@@ -112,6 +156,7 @@ export function parseOpenMeteoDaily(json: {
         min: Math.round(min[i]),
         ...(typeof codes[i] === 'number' ? { code: codes[i] } : {}),
         ...(typeof pops[i] === 'number' ? { pop: Math.round(pops[i]) } : {}),
+        ...(pops6[time[i]] ? { pops6: pops6[time[i]] } : {}),
       }
     }
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fourWeekDays, toDateStr, weekDays } from './dates'
-import { parseOpenMeteoDaily, weatherEmoji } from './weather'
+import { aggregatePop6, parseOpenMeteoDaily, weatherEmoji } from './weather'
 
 describe('fourWeekDays', () => {
   it('日曜始まりの28日間を返し、アンカーの週が2段目に来る', () => {
@@ -66,6 +66,61 @@ describe('parseOpenMeteoDaily', () => {
   it('データ欠損でも落ちない', () => {
     expect(parseOpenMeteoDaily({})).toEqual({})
     expect(parseOpenMeteoDaily({ daily: { time: ['2026-07-19'] } })).toEqual({})
+  })
+})
+
+describe('aggregatePop6', () => {
+  // 24時間分の時間別データを作る(hourは0-23)
+  function hours(day: string, values: (number | null)[]) {
+    return {
+      time: values.map((_, h) => `${day}T${String(h).padStart(2, '0')}:00`),
+      precipitation_probability: values,
+    }
+  }
+
+  it('6時間ごとの平均に丸めてまとめる', () => {
+    const values = [
+      ...Array(6).fill(10), // 0-6時 → 10%
+      ...Array(6).fill(20), // 6-12時 → 20%
+      ...Array(6).fill(90), // 12-18時 → 90%
+      ...Array(6).fill(40), // 18-24時 → 40%
+    ]
+    expect(aggregatePop6(hours('2026-07-22', values))['2026-07-22']).toEqual([10, 20, 90, 40])
+  })
+
+  it('区分内の平均を四捨五入する(最大値ではない)', () => {
+    const values = [0, 0, 0, 0, 0, 100, ...Array(18).fill(0)] // 0-6時: 平均16.7%
+    expect(aggregatePop6(hours('2026-07-22', values))['2026-07-22'][0]).toBe(17)
+  })
+
+  it('データがない区分はnull', () => {
+    const partial = {
+      time: ['2026-07-22T00:00', '2026-07-22T13:00'],
+      precipitation_probability: [30, 60],
+    }
+    expect(aggregatePop6(partial)['2026-07-22']).toEqual([30, null, 60, null])
+  })
+
+  it('複数日を日付ごとに分ける', () => {
+    const merged = {
+      time: ['2026-07-22T01:00', '2026-07-23T01:00'],
+      precipitation_probability: [10, 80],
+    }
+    const out = aggregatePop6(merged)
+    expect(out['2026-07-22'][0]).toBe(10)
+    expect(out['2026-07-23'][0]).toBe(80)
+  })
+
+  it('nullの時間は平均に含めない', () => {
+    const withNull = {
+      time: ['2026-07-22T00:00', '2026-07-22T01:00', '2026-07-22T02:00'],
+      precipitation_probability: [20, null, 40],
+    }
+    expect(aggregatePop6(withNull)['2026-07-22'][0]).toBe(30)
+  })
+
+  it('データなしなら空', () => {
+    expect(aggregatePop6({})).toEqual({})
   })
 })
 

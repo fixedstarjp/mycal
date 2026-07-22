@@ -8,7 +8,7 @@ import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
 import { eventEndDate, eventOccursOn } from '../lib/events'
-import { weatherEmoji, type TempsByDate } from '../lib/weather'
+import { POP6_LABELS, weatherEmoji, type TempsByDate } from '../lib/weather'
 import { useBottomSheet } from '../hooks/useBottomSheet'
 import LogEntryForm from './LogEntryForm'
 import EventForm from './EventForm'
@@ -161,6 +161,18 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
             ▼
           </button>
         </header>
+
+        {/* 6時間ごとの降水確率(0-6/6-12/12-18/18-24) */}
+        {temps[date]?.pops6 && (
+          <div className="grid shrink-0 grid-cols-4 gap-1 px-4 pb-2">
+            {temps[date].pops6!.map((p, i) => (
+              <div key={POP6_LABELS[i]} className="rounded-lg bg-slate-800/60 py-1 text-center">
+                <div className="text-[10px] leading-4 text-slate-500">{POP6_LABELS[i]}時</div>
+                <div className="text-sm leading-4 text-sky-300">{p === null ? '—' : `${p}%`}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div
           key={date}
