@@ -34,7 +34,14 @@ export const seedLayers: Layer[] = [
     name: '筋トレ',
     type: 'habit',
     color: '#f97316',
-    config: { habitKind: 'number', habitUnit: 'セット' },
+    config: {
+      habitKind: 'number',
+      habitUnit: 'セット',
+      menus: [
+        { name: 'A', items: ['腹筋', 'ベンチプレス'] },
+        { name: 'B', items: ['デッドリフト', '腕'] },
+      ],
+    },
     sortOrder: 0,
     archived: false,
     visible: true,

@@ -90,6 +90,23 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
     data.reload()
   }
 
+  // メニュー(A/Bセット等)の選択。選んだメニュー名はnoteに保存する。
+  // 同じメニューを再タップすると解除(その日の記録を未達成に戻す)
+  async function selectMenu(layer: Layer, menuName: string) {
+    const cur = habitOf(layer.id)
+    const kind = layer.config.habitKind ?? 'bool'
+    const isSame = cur?.note === menuName && cur && isAchieved(cur)
+    await repo.upsertHabitEntry({
+      id: cur?.id ?? newId(),
+      layerId: layer.id,
+      date,
+      valueBool: kind === 'bool' ? !isSame : null,
+      valueNum: kind === 'number' ? (isSame ? 0 : (cur?.valueNum || 1)) : null,
+      note: isSame ? '' : menuName,
+    })
+    data.reload()
+  }
+
   async function deleteLog(entry: LogEntry) {
     if (!confirm('このログを削除しますか?')) return
     await repo.deleteLogEntry(entry.id)
@@ -129,6 +146,11 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
             <span className="flex items-center gap-1 text-base font-medium text-slate-200">
               <span className="text-xl leading-none">{weatherEmoji(temps[date].code)}</span>
               {temps[date].max}°/{temps[date].min}°
+              {temps[date].pop !== undefined && (
+                <span className="text-sky-300" title="降水確率">
+                  ☔{temps[date].pop}%
+                </span>
+              )}
             </span>
           )}
           <button
@@ -210,36 +232,65 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
                   data.habitEntries.filter((e) => e.layerId === layer.id),
                   date,
                 )
+                const menus = layer.config.menus ?? []
+                const selectedMenu = menus.find((m) => m.name === entry?.note && achieved)
                 return (
-                  <li key={layer.id} className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2">
-                    <button
-                      onClick={() => toggleHabit(layer)}
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold transition ${
-                        achieved ? 'text-white' : 'border-slate-600 text-transparent'
-                      }`}
-                      style={achieved ? { backgroundColor: layer.color, borderColor: layer.color } : {}}
-                      aria-label={`${layer.name}を切り替え`}
-                    >
-                      ✓
-                    </button>
-                    <span className="flex-1 text-sm text-slate-200">{layer.name}</span>
-                    {kind === 'number' && (
-                      <span className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          min={0}
-                          value={entry?.valueNum ?? ''}
-                          placeholder="0"
-                          onChange={(e) => setHabitNum(layer, Number(e.target.value))}
-                          className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-right text-sm text-slate-200"
-                        />
-                        <span className="text-xs text-slate-500">{layer.config.habitUnit}</span>
-                      </span>
+                  <li key={layer.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleHabit(layer)}
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-lg font-bold transition ${
+                          achieved ? 'text-white' : 'border-slate-600 text-transparent'
+                        }`}
+                        style={achieved ? { backgroundColor: layer.color, borderColor: layer.color } : {}}
+                        aria-label={`${layer.name}を切り替え`}
+                      >
+                        ✓
+                      </button>
+                      <span className="flex-1 text-sm text-slate-200">{layer.name}</span>
+                      {kind === 'number' && (
+                        <span className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={0}
+                            value={entry?.valueNum ?? ''}
+                            placeholder="0"
+                            onChange={(e) => setHabitNum(layer, Number(e.target.value))}
+                            className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-right text-sm text-slate-200"
+                          />
+                          <span className="text-xs text-slate-500">{layer.config.habitUnit}</span>
+                        </span>
+                      )}
+                      {streak > 0 && (
+                        <span className="text-xs text-slate-500" title="連続日数">
+                          🔥{streak}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* メニュー(A/Bセット等)。タップでそのメニューを記録、再タップで解除 */}
+                    {menus.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {menus.map((m) => {
+                          const on = entry?.note === m.name && achieved
+                          return (
+                            <button
+                              key={m.name}
+                              onClick={() => selectMenu(layer, m.name)}
+                              className={`rounded-full px-3 py-1.5 text-sm ${
+                                on ? 'text-white' : 'bg-slate-800 text-slate-400'
+                              }`}
+                              style={on ? { backgroundColor: layer.color } : {}}
+                              title={m.items.join('・')}
+                            >
+                              {m.name}
+                            </button>
+                          )
+                        })}
+                      </div>
                     )}
-                    {streak > 0 && (
-                      <span className="text-xs text-slate-500" title="連続日数">
-                        🔥{streak}
-                      </span>
+                    {selectedMenu && selectedMenu.items.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-500">{selectedMenu.items.join('・')}</p>
                     )}
                   </li>
                 )
@@ -247,45 +298,48 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
             </ul>
           </section>
 
-          {/* ログ */}
+          {/* ログ: レイヤーごとに見出しを分けて表示(食事記録・日記・株の売買が混ざらないように) */}
+          {logLayers.map((layer) => {
+            const entries = dayLogs.filter((e) => e.layerId === layer.id)
+            if (entries.length === 0) return null
+            return (
+              <section key={layer.id}>
+                <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: layer.color }} />
+                  {layer.name}
+                </h2>
+                <ul className="space-y-2">
+                  {entries.map((entry) => (
+                    <li key={entry.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        {entry.time && <span className="text-xs text-slate-500">{entry.time}</span>}
+                        <span className="ml-auto flex gap-2">
+                          <button onClick={() => setEditingLog(entry)} className="text-xs text-sky-400">
+                            編集
+                          </button>
+                          <button onClick={() => deleteLog(entry)} className="text-xs text-rose-400">
+                            削除
+                          </button>
+                        </span>
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
+                        {(layer.config.fields ?? [])
+                          .map((f) => entry.data[f.key])
+                          .filter((v) => v !== undefined && v !== '')
+                          .join(' / ')}
+                      </p>
+                      {entry.note && <p className="mt-0.5 text-xs text-slate-500">{entry.note}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )
+          })}
+
           <section>
-            <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">記録</h2>
-            <ul className="space-y-2">
-              {dayLogs.map((entry) => {
-                const layer = logLayers.find((l) => l.id === entry.layerId)
-                if (!layer) return null
-                return (
-                  <li key={entry.id} className="rounded-lg bg-slate-800/60 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                        style={{ backgroundColor: layer.color }}
-                      >
-                        {layer.name}
-                      </span>
-                      {entry.time && <span className="text-xs text-slate-500">{entry.time}</span>}
-                      <span className="ml-auto flex gap-2">
-                        <button onClick={() => setEditingLog(entry)} className="text-xs text-sky-400">
-                          編集
-                        </button>
-                        <button onClick={() => deleteLog(entry)} className="text-xs text-rose-400">
-                          削除
-                        </button>
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-slate-300">
-                      {(layer.config.fields ?? [])
-                        .map((f) => entry.data[f.key])
-                        .filter((v) => v !== undefined && v !== '')
-                        .join(' / ')}
-                    </p>
-                    {entry.note && <p className="mt-0.5 text-xs text-slate-500">{entry.note}</p>}
-                  </li>
-                )
-              })}
-            </ul>
+            <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">追加</h2>
             {/* 追加ボタン: ログレイヤー+予定をひとまとめに */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {logLayers.map((l) => (
                 <button
                   key={l.id}
