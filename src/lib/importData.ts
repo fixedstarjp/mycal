@@ -1,10 +1,11 @@
-import type { AppEvent, ExportData, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, HabitEntry, Layer, LogEntry, Todo } from '../types'
 
 export interface ImportPlan {
   layersToCreate: Layer[]
   habitEntries: HabitEntry[]
   logEntries: LogEntry[]
   events: AppEvent[]
+  todos: Todo[]
 }
 
 // エクスポートJSONの取り込み計画を作る純粋関数。
@@ -44,10 +45,11 @@ export function planImport(
     logEntries.push({ ...e, id: idgen(), layerId })
   }
 
-  // 予定はレイヤー参照を持たないため、ID再採番のみ
+  // 予定・ToDoはレイヤー参照を持たないため、ID再採番のみ
   const events: AppEvent[] = (data.events ?? []).map((e) => ({ ...e, id: idgen() }))
+  const todos: Todo[] = (data.todos ?? []).map((t) => ({ ...t, id: idgen() }))
 
-  return { layersToCreate, habitEntries, logEntries, events }
+  return { layersToCreate, habitEntries, logEntries, events, todos }
 }
 
 export function parseExportJson(text: string): ExportData {
@@ -62,5 +64,6 @@ export function parseExportJson(text: string): ExportData {
     habitEntries: Array.isArray(parsed.habitEntries) ? parsed.habitEntries : [],
     logEntries: Array.isArray(parsed.logEntries) ? parsed.logEntries : [],
     events: Array.isArray(parsed.events) ? parsed.events : [],
+    todos: Array.isArray(parsed.todos) ? parsed.todos : [],
   }
 }

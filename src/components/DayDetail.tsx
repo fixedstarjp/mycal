@@ -3,11 +3,12 @@ import { addDays, format } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
-import type { AppEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, HabitEntry, Layer, LogEntry, Todo } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
 import { eventEndDate, eventOccursOn } from '../lib/events'
+import { todosOnDate } from '../lib/todos'
 import { POP6_LABELS, weatherEmoji, type TempsByDate } from '../lib/weather'
 import { useBottomSheet } from '../hooks/useBottomSheet'
 import LogEntryForm from './LogEntryForm'
@@ -56,6 +57,12 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
     .filter((e) => eventOccursOn(e, date))
     .sort((a, b) => a.time.localeCompare(b.time))
   const dayLogs = data.logEntries.filter((e) => e.date === date)
+  const dayTodos = todosOnDate(data.todos, date)
+
+  async function toggleTodo(todo: Todo) {
+    await repo.saveTodo({ ...todo, done: !todo.done })
+    data.reload()
+  }
 
   const habitOf = (layerId: string) =>
     data.habitEntries.find((e) => e.layerId === layerId && e.date === date)
@@ -231,6 +238,31 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
               </ul>
             )}
           </section>
+
+          {/* この日が期日のToDo */}
+          {dayTodos.length > 0 && (
+            <section>
+              <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">ToDo</h2>
+              <ul className="space-y-2">
+                {dayTodos.map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2">
+                    <button
+                      onClick={() => toggleTodo(t)}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
+                        t.done ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-600 text-transparent'
+                      }`}
+                      aria-label={`${t.title}を完了に切り替え`}
+                    >
+                      ✓
+                    </button>
+                    <span className={`text-sm ${t.done ? 'text-slate-500 line-through' : 'text-slate-100'}`}>
+                      {t.title}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* 習慣チェック */}
           <section>

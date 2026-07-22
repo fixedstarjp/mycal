@@ -43,7 +43,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
     const get = (d: string) => {
       let v = map.get(d)
       if (!v) {
-        v = { events: [], appEvents: [], habits: new Set(), logCounts: new Map() }
+        v = { events: [], appEvents: [], todos: [], habits: new Set(), logCounts: new Map() }
         map.set(d, v)
       }
       return v
@@ -53,6 +53,10 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
       for (const ds of eventDates(ev)) {
         get(ds).appEvents.push({ icon: ev.icon, title: ev.title })
       }
+    }
+    for (const t of data.todos) {
+      // 期日つきのToDoだけカレンダーに出す
+      if (t.dueDate) get(t.dueDate).todos.push({ title: t.title, done: t.done })
     }
     for (const ev of data.gcalEvents) {
       const d = ev.allDay ? ev.startAt.slice(0, 10) : toDateStr(new Date(ev.startAt))
@@ -66,7 +70,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
       counts.set(e.layerId, (counts.get(e.layerId) ?? 0) + 1)
     }
     return map
-  }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries])
+  }, [data.events, data.gcalEvents, data.habitEntries, data.logEntries, data.todos])
 
   return (
     <div className="flex h-full flex-col" {...swipe.handlers}>

@@ -81,6 +81,16 @@ export interface AppEvent {
   note: string
 }
 
+// ToDo(メモ)。期日は任意で、付けるとカレンダーのその日に表示される
+export interface Todo {
+  id: string
+  title: string
+  note: string
+  dueDate: string // YYYY-MM-DD ('' = 期日なし)
+  done: boolean
+  sortOrder: number
+}
+
 export interface ExportData {
   exportedAt: string
   version: 1
@@ -88,4 +98,5 @@ export interface ExportData {
   habitEntries: HabitEntry[]
   logEntries: LogEntry[]
   events?: AppEvent[] // 旧エクスポートには存在しない
+  todos?: Todo[] // 旧エクスポートには存在しない
 }

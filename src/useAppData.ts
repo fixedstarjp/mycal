@@ -3,7 +3,7 @@ import { LocalStorageRepository } from './data/localRepository'
 import { SupabaseRepository } from './data/supabaseRepository'
 import { supabase } from './data/supabaseClient'
 import type { Repository } from './data/repository'
-import type { AppEvent, GcalEvent, HabitEntry, Layer, LogEntry } from './types'
+import type { AppEvent, GcalEvent, HabitEntry, Layer, LogEntry, Todo } from './types'
 import { toDateStr } from './lib/dates'
 import { addMonths, endOfMonth, startOfMonth } from 'date-fns'
 
@@ -18,6 +18,7 @@ export interface AppData {
   logEntries: LogEntry[]
   gcalEvents: GcalEvent[]
   events: AppEvent[]
+  todos: Todo[]
   reload: () => void
 }
 
@@ -28,6 +29,7 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
   const [gcalEvents, setGcalEvents] = useState<GcalEvent[]>([])
   const [events, setEvents] = useState<AppEvent[]>([])
+  const [todos, setTodos] = useState<Todo[]>([])
   const [tick, setTick] = useState(0)
 
   const range = useMemo(() => {
@@ -41,12 +43,14 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [ls, hs, lgs, gevs, evs] = await Promise.all([
+      const [ls, hs, lgs, gevs, evs, tds] = await Promise.all([
         repo.getLayers(),
         repo.getHabitEntries(range.from, range.to),
         repo.getLogEntries(range.from, range.to),
         repo.getGcalEvents(range.from, range.to),
         repo.getEvents(range.from, range.to),
+        // ToDoは件数が少ないので全件(期日なしも表示するため)
+        repo.getTodos(),
       ])
       if (cancelled) return
       setLayers(ls)
@@ -54,6 +58,7 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
       setLogEntries(lgs)
       setGcalEvents(gevs)
       setEvents(evs)
+      setTodos(tds)
     })()
     return () => {
       cancelled = true
@@ -62,7 +67,7 @@ export function useAppData(anchorYear: number, anchorMonth: number): AppData {
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
 
-  return { layers, habitEntries, logEntries, gcalEvents, events, reload }
+  return { layers, habitEntries, logEntries, gcalEvents, events, todos, reload }
 }
 
 export function newId(): string {

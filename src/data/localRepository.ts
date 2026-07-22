@@ -1,4 +1,4 @@
-import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry, Todo } from '../types'
 import type { Repository } from './repository'
 import { planImport } from '../lib/importData'
 import { seedGcalEvents, seedLayers } from './seed'
@@ -9,6 +9,7 @@ const KEYS = {
   logs: 'mycal.log_entries',
   gcal: 'mycal.gcal_cache',
   events: 'mycal.events',
+  todos: 'mycal.todos',
 } as const
 
 function load<T>(key: string, fallback: T): T {
@@ -130,12 +131,29 @@ export class LocalStorageRepository implements Repository {
     save(KEYS.events, load<AppEvent[]>(KEYS.events, []).filter((e) => e.id !== eventId))
   }
 
+  async getTodos(): Promise<Todo[]> {
+    return load<Todo[]>(KEYS.todos, [])
+  }
+
+  async saveTodo(todo: Todo): Promise<void> {
+    const todos = load<Todo[]>(KEYS.todos, [])
+    const idx = todos.findIndex((t) => t.id === todo.id)
+    if (idx >= 0) todos[idx] = todo
+    else todos.push(todo)
+    save(KEYS.todos, todos)
+  }
+
+  async deleteTodo(todoId: string): Promise<void> {
+    save(KEYS.todos, load<Todo[]>(KEYS.todos, []).filter((t) => t.id !== todoId))
+  }
+
   async exportAll() {
     return {
       layers: load<Layer[]>(KEYS.layers, []),
       habitEntries: load<HabitEntry[]>(KEYS.habits, []),
       logEntries: load<LogEntry[]>(KEYS.logs, []),
       events: load<AppEvent[]>(KEYS.events, []),
+      todos: load<Todo[]>(KEYS.todos, []),
     }
   }
 
@@ -148,5 +166,7 @@ export class LocalStorageRepository implements Repository {
     save(KEYS.logs, [...logs, ...plan.logEntries])
     const events = load<AppEvent[]>(KEYS.events, [])
     save(KEYS.events, [...events, ...plan.events])
+    const todos = load<Todo[]>(KEYS.todos, [])
+    save(KEYS.todos, [...todos, ...plan.todos])
   }
 }
