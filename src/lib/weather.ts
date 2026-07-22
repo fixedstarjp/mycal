@@ -1,4 +1,5 @@
 import { toDateStr } from './dates'
+import { fetchJmaPops, nearestArea } from './jmaWeather'
 
 export interface DayTemp {
   max: number
@@ -28,15 +29,19 @@ export function weatherEmoji(code: number | undefined): string {
 
 export type TempsByDate = Record<string, DayTemp>
 
-// 降水確率をmax→meanに変更したため、旧キャッシュを使わないようキーを更新
-const CACHE_KEY = 'mycal.weather.v2'
+// 6時間降水確率を気象庁データに切り替えたため、旧キャッシュを使わないようキーを更新
+const CACHE_KEY = 'mycal.weather.v3'
 const TTL_MS = 6 * 60 * 60 * 1000 // 6時間
 const FALLBACK = { lat: 35.68, lon: 139.76 } // 位置情報が取れない場合は東京
 
 interface Cache {
   fetchedAt: string
   byDate: TempsByDate
+  areaName?: string // 気象庁の予報区名(降水確率の出どころ)
 }
+
+// 直近の取得で使った気象庁予報区名(設定表示などに使う)
+export let lastJmaAreaName = ''
 
 function getPosition(timeoutMs = 3000): Promise<{ lat: number; lon: number }> {
   return new Promise((resolve) => {
@@ -65,8 +70,9 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
       const cache = JSON.parse(raw) as Cache
       const fresh = Date.now() - new Date(cache.fetchedAt).getTime() < TTL_MS
       const today = cache.byDate[toDateStr(new Date())]
-      // 旧形式キャッシュ(天気コード・降水確率・6時間別なし)は取得し直す
-      if (fresh && today && typeof today.code === 'number' && typeof today.pop === 'number' && today.pops6) {
+      // 天気コードがあれば有効(6時間別は気象庁が取れない日もあるため必須にしない)
+      if (fresh && today && typeof today.code === 'number') {
+        lastJmaAreaName = cache.areaName ?? ''
         return cache.byDate
       }
     }
@@ -75,22 +81,39 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
   }
 
   const { lat, lon } = await getPosition()
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    // 降水確率は「その日の平均」を使う。max(その日の最大)は雨量0mmでも
-    // 100%になることがあり、天気予報の感覚と大きくズレるため
-    `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_mean` +
-    // 6時間ごと(0-6/6-12/12-18/18-24)の降水確率を出すため時間別も取得する
-    `&hourly=precipitation_probability` +
-    `&timezone=auto&forecast_days=7`
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`weather fetch failed: ${res.status}`)
-  const json = await res.json()
 
-  const byDate = parseOpenMeteoDaily(json)
+  // 気温・天気アイコンはOpen-Meteo(全国・海外対応)。
+  // 6時間降水確率は気象庁の予報を最寄りの予報区から取得する。
+  const omUrl =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&daily=temperature_2m_max,temperature_2m_min,weathercode` +
+    `&timezone=auto&forecast_days=7`
+  const omRes = await fetch(omUrl)
+  if (!omRes.ok) throw new Error(`weather fetch failed: ${omRes.status}`)
+  const byDate = parseOpenMeteoDaily(await omRes.json())
+
+  // 気象庁の6時間降水確率をマージ(失敗しても気温は表示する)
+  let areaName = ''
+  try {
+    const area = nearestArea(lat, lon)
+    const jma = await fetchJmaPops(area)
+    areaName = jma.areaName || area.name
+    for (const [date, blocks] of Object.entries(jma.byDate)) {
+      const day = byDate[date]
+      if (!day) continue
+      day.pops6 = blocks
+      // ヘッダーの☔は、その日の各区分のうち最大値(気象庁の読み方に合わせる)
+      const nums = blocks.filter((v): v is number => v !== null)
+      if (nums.length > 0) day.pop = Math.max(...nums)
+    }
+  } catch {
+    // 気象庁が取得できない(海外・障害など)場合は降水確率なしで続行
+  }
+  lastJmaAreaName = areaName
+
   localStorage.setItem(
     CACHE_KEY,
-    JSON.stringify({ fetchedAt: new Date().toISOString(), byDate } satisfies Cache),
+    JSON.stringify({ fetchedAt: new Date().toISOString(), byDate, areaName } satisfies Cache),
   )
   return byDate
 }
