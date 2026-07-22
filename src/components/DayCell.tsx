@@ -6,6 +6,7 @@ import { weatherEmoji, type DayTemp } from '../lib/weather'
 export interface DayCellInfo {
   events: string[] // Google予定タイトル
   appEvents: { icon: string; title: string }[]
+  todos: { title: string; done: boolean }[] // その日が期日のToDo
   habits: Set<string> // 達成済みhabit layerId
   logCounts: Map<string, number>
 }
@@ -70,6 +71,20 @@ export default function DayCell({ d, ds, isToday, info, temp, habitLayers, logLa
           </span>
         )}
       </span>
+
+      {/* 期日つきToDo(未完了のみ) */}
+      {info?.todos
+        .filter((t) => !t.done)
+        .slice(0, 2)
+        .map((t, i) => (
+          <span
+            key={`t${i}`}
+            title={t.title}
+            className="truncate rounded bg-sky-900/70 px-1 text-[9px] leading-4 text-sky-200"
+          >
+            ✓{t.title}
+          </span>
+        ))}
 
       {/* 自分の予定(アイコン付き・明るめ)を先に、Google予定(グレー)を後に表示 */}
       {info?.appEvents.slice(0, MAX_EVENTS).map((ev, i) => (

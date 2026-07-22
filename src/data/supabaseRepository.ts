@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry } from '../types'
+import type { AppEvent, ExportData, GcalEvent, HabitEntry, Layer, LogEntry, Todo } from '../types'
 import type { Repository } from './repository'
 import { planImport } from '../lib/importData'
 import { seedLayers } from './seed'
@@ -7,6 +7,8 @@ import {
   eventFromRow,
   eventToRow,
   gcalFromRow,
+  todoFromRow,
+  todoToRow,
   habitFromRow,
   habitToRow,
   layerFromRow,
@@ -15,6 +17,7 @@ import {
   logToRow,
   type AppEventRow,
   type GcalEventRow,
+  type TodoRow,
   type HabitEntryRow,
   type LayerRow,
   type LogEntryRow,
@@ -168,6 +171,32 @@ export class SupabaseRepository implements Repository {
     if (error) throw error
   }
 
+  async getTodos(): Promise<Todo[]> {
+    const { data, error } = await this.client
+      .from('todos')
+      .select('id,title,note,due_date,done,sort_order')
+      .order('sort_order', { ascending: false })
+    if (error) {
+      // 004_todos.sql 未適用でも他の表示を壊さない(undefined_table)
+      if (error.code === '42P01') {
+        console.warn('todosテーブルが未作成です。supabase/migrations/004_todos.sql を実行してください。')
+        return []
+      }
+      throw error
+    }
+    return (data as TodoRow[]).map(todoFromRow)
+  }
+
+  async saveTodo(todo: Todo): Promise<void> {
+    const { error } = await this.client.from('todos').upsert(todoToRow(todo))
+    if (error) throw error
+  }
+
+  async deleteTodo(todoId: string): Promise<void> {
+    const { error } = await this.client.from('todos').delete().eq('id', todoId)
+    if (error) throw error
+  }
+
   async exportAll() {
     const [layersRes, habitsRes, logsRes, eventsRes] = await Promise.all([
       this.client.from('layers').select('id,name,type,color,config,sort_order,archived,visible'),
@@ -183,6 +212,8 @@ export class SupabaseRepository implements Repository {
       habitEntries: (habitsRes.data as HabitEntryRow[]).map(habitFromRow),
       logEntries: (logsRes.data as LogEntryRow[]).map(logFromRow),
       events: (eventsRes.data as AppEventRow[]).map(eventFromRow),
+      // todosテーブル未作成でもエクスポートは通す(getTodos内でフォールバック)
+      todos: await this.getTodos(),
     }
   }
 
@@ -210,6 +241,10 @@ export class SupabaseRepository implements Repository {
     }
     if (plan.events.length > 0) {
       const { error } = await this.client.from('events').insert(plan.events.map(eventToRow))
+      if (error) throw error
+    }
+    if (plan.todos.length > 0) {
+      const { error } = await this.client.from('todos').insert(plan.todos.map(todoToRow))
       if (error) throw error
     }
   }

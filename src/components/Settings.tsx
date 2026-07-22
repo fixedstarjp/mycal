@@ -21,7 +21,9 @@ export default function Settings({ data }: { data: AppData }) {
 
   async function exportJson() {
     const all = await repo.exportAll()
-    downloadJson(buildExportData(all.layers, all.habitEntries, all.logEntries, all.events ?? []))
+    downloadJson(
+      buildExportData(all.layers, all.habitEntries, all.logEntries, all.events ?? [], all.todos ?? []),
+    )
   }
 
   async function importJson(file: File) {

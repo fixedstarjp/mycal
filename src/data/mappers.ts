@@ -1,4 +1,4 @@
-import type { AppEvent, GcalEvent, HabitEntry, Layer, LayerConfig, LogEntry } from '../types'
+import type { AppEvent, GcalEvent, HabitEntry, Layer, LayerConfig, LogEntry, Todo } from '../types'
 
 // Supabaseの行(snake_case)⇔アプリのモデル(camelCase)の変換。
 // 純粋関数としてテスト可能にしている。
@@ -145,6 +145,37 @@ export function eventToRow(e: AppEvent): AppEventRow {
     title: e.title,
     icon: e.icon,
     note: e.note,
+  }
+}
+
+export interface TodoRow {
+  id: string
+  title: string
+  note: string
+  due_date: string | null // 期日なしはnull
+  done: boolean
+  sort_order: number
+}
+
+export function todoFromRow(r: TodoRow): Todo {
+  return {
+    id: r.id,
+    title: r.title,
+    note: r.note ?? '',
+    dueDate: r.due_date ?? '',
+    done: r.done,
+    sortOrder: r.sort_order ?? 0,
+  }
+}
+
+export function todoToRow(t: Todo): TodoRow {
+  return {
+    id: t.id,
+    title: t.title,
+    note: t.note,
+    due_date: t.dueDate || null,
+    done: t.done,
+    sort_order: t.sortOrder,
   }
 }
 

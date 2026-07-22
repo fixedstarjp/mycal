@@ -4,6 +4,7 @@ import MonthView from './components/MonthView'
 import WeekView from './components/WeekView'
 import DayDetail from './components/DayDetail'
 import SearchView from './components/SearchView'
+import TodoView from './components/TodoView'
 import Settings from './components/Settings'
 import Login from './components/Login'
 import { useAppData } from './useAppData'
@@ -11,7 +12,7 @@ import { useAuth } from './useAuth'
 import { isSupabaseMode } from './data/supabaseClient'
 import { fetchWeather, type TempsByDate } from './lib/weather'
 
-type View = 'month' | 'week' | 'search' | 'settings'
+type View = 'month' | 'week' | 'todo' | 'search' | 'settings'
 
 interface NavItem {
   key: View
@@ -23,12 +24,12 @@ function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; 
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 py-1.5 text-[10px] ${
+      className={`flex flex-col items-center gap-0.5 py-1.5 text-[9px] ${
         active ? 'text-sky-400' : 'text-slate-500'
       }`}
     >
       <span className="text-base leading-none">{item.icon}</span>
-      {item.label}
+      <span className="max-w-full truncate px-0.5">{item.label}</span>
     </button>
   )
 }
@@ -69,6 +70,7 @@ function MainApp() {
   const nav: { key: View; label: string; icon: string }[] = [
     { key: 'month', label: 'カレンダー', icon: '📅' },
     { key: 'week', label: '週', icon: '📋' },
+    { key: 'todo', label: 'ToDo', icon: '✅' },
     { key: 'search', label: '検索', icon: '🔍' },
     { key: 'settings', label: '設定', icon: '⚙️' },
   ]
@@ -91,6 +93,8 @@ function MainApp() {
             onSelectDate={setSelectedDate}
             onMove={(d) => setAnchor((a) => addWeeks(a, d))}
           />
+        ) : view === 'todo' ? (
+          <TodoView data={data} onSelectDate={setSelectedDate} />
         ) : view === 'search' ? (
           <SearchView onSelectDate={setSelectedDate} />
         ) : (
@@ -113,7 +117,7 @@ function MainApp() {
         />
       )}
 
-      <nav className="grid shrink-0 grid-cols-5 border-t border-slate-800 bg-slate-900 pb-[calc(env(safe-area-inset-bottom)*0.5)]">
+      <nav className="grid shrink-0 grid-cols-6 border-t border-slate-800 bg-slate-900 pb-[calc(env(safe-area-inset-bottom)*0.5)]">
         {nav.slice(0, 2).map((n) => (
           <NavButton key={n.key} item={n} active={view === n.key && !selectedDate} onClick={() => {
             setView(n.key)
@@ -124,7 +128,7 @@ function MainApp() {
         {/* 中央: ブラウザリロード(最新データ・気温・アプリ新バージョンをまとめて取り込む) */}
         <button
           onClick={() => window.location.reload()}
-          className="flex flex-col items-center gap-0.5 py-1.5 text-[10px] text-slate-500 active:text-sky-400"
+          className="flex flex-col items-center gap-0.5 py-1.5 text-[9px] text-slate-500 active:text-sky-400"
           aria-label="再読み込み"
         >
           <span className="text-base leading-none">🔄</span>
