@@ -19,6 +19,7 @@ interface Props {
   temp: DayTemp | undefined
   habitLayers: Layer[]
   logLayers: Layer[]
+  barBandPx: number // 複数日予定の横断バー用に上部へ空ける高さ(週で共通)
   onSelect: (date: string) => void
 }
 
@@ -26,7 +27,17 @@ const MAX_EVENTS = 5
 
 // カレンダーの1日分のセル。
 // 1行目=日付+祝日名(今日は青い帯)、2行目=天気+気温、以降=予定チップ、最下段=習慣ドット+ログ件数
-export default function DayCell({ d, ds, isToday, info, temp, habitLayers, logLayers, onSelect }: Props) {
+export default function DayCell({
+  d,
+  ds,
+  isToday,
+  info,
+  temp,
+  habitLayers,
+  logLayers,
+  barBandPx,
+  onSelect,
+}: Props) {
   const holiday = getHolidayName(d)
   const rest = isRestDay(d)
   const dow = d.getDay()
@@ -39,39 +50,41 @@ export default function DayCell({ d, ds, isToday, info, temp, habitLayers, logLa
       } ${isToday ? 'ring-2 ring-inset ring-emerald-400' : ''}`}
     >
       {/* 今日は日付行を緑の帯にして目立たせる(セルは緑の細枠で囲う) */}
-      <span className={`-m-1 mb-0 flex flex-col px-1 py-0.5 ${isToday ? 'bg-emerald-500' : ''}`}>
-        <span className="flex min-w-0 items-baseline">
-          <span
-            className={`shrink-0 text-xs leading-4 ${
-              isToday
-                ? 'font-bold text-white'
-                : holiday || dow === 0
-                  ? 'text-rose-400'
-                  : dow === 6
-                    ? 'text-sky-400'
-                    : 'text-slate-300'
-            }`}
-          >
-            {/* 毎月1日は「8/1」のように月を付けて表示 */}
-            {d.getDate() === 1 ? format(d, 'M/d') : format(d, 'd')}
-          </span>
-          {holiday && (
-            <span
-              className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
-            >
-              {holiday}
-            </span>
-          )}
+      <span className={`-m-1 mb-0 flex min-w-0 items-baseline px-1 py-0.5 ${isToday ? 'bg-emerald-500' : ''}`}>
+        <span
+          className={`shrink-0 text-xs leading-4 ${
+            isToday
+              ? 'font-bold text-white'
+              : holiday || dow === 0
+                ? 'text-rose-400'
+                : dow === 6
+                  ? 'text-sky-400'
+                  : 'text-slate-300'
+          }`}
+        >
+          {/* 毎月1日は「8/1」のように月を付けて表示 */}
+          {d.getDate() === 1 ? format(d, 'M/d') : format(d, 'd')}
         </span>
-        {temp && (
+        {holiday && (
           <span
-            className={`text-[8px] leading-3 ${isToday ? 'text-emerald-50' : 'text-slate-400'}`}
-            title={`最高${temp.max}° / 最低${temp.min}°`}
+            className={`min-w-0 break-all text-[8px] leading-3 ${isToday ? 'text-white' : 'text-rose-400'}`}
           >
-            {weatherEmoji(temp.code)} {temp.max}/{temp.min}°
+            {holiday}
           </span>
         )}
       </span>
+
+      {/* 複数日予定の横断バー用に上部を空ける(バー本体はMonthViewが週単位で重ねて描く) */}
+      {barBandPx > 0 && <span style={{ height: barBandPx }} className="shrink-0" />}
+
+      {temp && (
+        <span
+          className="text-[8px] leading-3 text-slate-400"
+          title={`最高${temp.max}° / 最低${temp.min}°`}
+        >
+          {weatherEmoji(temp.code)} {temp.max}/{temp.min}°
+        </span>
+      )}
 
       {/* 期日つきToDo(未完了のみ) */}
       {info?.todos
