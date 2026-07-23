@@ -15,6 +15,9 @@ export interface Repository {
   getLogEntries(dateFrom: string, dateTo: string): Promise<LogEntry[]>
   saveLogEntry(entry: LogEntry): Promise<void>
   deleteLogEntry(entryId: string): Promise<void>
+  // 指定レイヤーの直近の記録(新しい順)。ワンタップ再入力のテンプレ候補に使う
+  getRecentLogEntries(layerId: string, limit: number): Promise<LogEntry[]>
+
 
   getGcalEvents(dateFrom: string, dateTo: string): Promise<GcalEvent[]>
 
