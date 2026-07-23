@@ -25,6 +25,21 @@ export function weekDays(anchor: Date): Date[] {
 
 export const WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
+// 現在時刻(等)を5分単位に丸めて 'HH:mm' で返す。ログの時刻初期値に使う
+export function roundTime5(d: Date = new Date()): string {
+  let h = d.getHours()
+  let m = Math.round(d.getMinutes() / 5) * 5
+  if (m === 60) {
+    m = 0
+    h += 1
+  }
+  if (h >= 24) {
+    h = 23
+    m = 55
+  }
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
 // 'HH:mm' の1時間後を返す(終了時刻のデフォルト用)。日をまたぐ場合は23:55に丸める
 export function addOneHour(time: string): string {
   const [h, m] = time.split(':').map(Number)

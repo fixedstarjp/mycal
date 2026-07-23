@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fourWeekDays, toDateStr, weekDays } from './dates'
+import { fourWeekDays, roundTime5, toDateStr, weekDays } from './dates'
 import { aggregatePop6, parseOpenMeteoDaily, weatherEmoji } from './weather'
 
 describe('fourWeekDays', () => {
@@ -17,6 +17,26 @@ describe('fourWeekDays', () => {
   it('アンカーが週の途中(水曜)でも同じ週割りになる', () => {
     const days = fourWeekDays(new Date(2026, 6, 22)) // 水曜
     expect(toDateStr(days[0])).toBe('2026-07-12')
+  })
+})
+
+describe('roundTime5', () => {
+  const at = (h: number, m: number) => roundTime5(new Date(2026, 6, 22, h, m))
+
+  it('最も近い5分に丸める', () => {
+    expect(at(9, 2)).toBe('09:00')
+    expect(at(9, 3)).toBe('09:05')
+    expect(at(14, 57)).toBe('14:55')
+    expect(at(14, 58)).toBe('15:00') // 繰り上がり
+  })
+
+  it('23:58は23:55に丸める(24時にしない)', () => {
+    expect(at(23, 58)).toBe('23:55')
+  })
+
+  it('ちょうど5分刻みはそのまま', () => {
+    expect(at(10, 30)).toBe('10:30')
+    expect(at(0, 0)).toBe('00:00')
   })
 })
 

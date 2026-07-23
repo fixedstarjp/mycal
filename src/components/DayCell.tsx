@@ -36,9 +36,10 @@ export default function DayCell({ d, ds, isToday, info, temp, habitLayers, logLa
       onClick={() => onSelect(ds)}
       className={`flex flex-col items-stretch gap-0.5 overflow-hidden p-1 text-left align-top hover:bg-slate-800 active:bg-slate-700 ${
         rest ? 'bg-slate-900' : 'bg-slate-800/45'
-      }`}
+      } ${isToday ? 'ring-2 ring-inset ring-emerald-400' : ''}`}
     >
-      <span className={`-m-1 mb-0 flex flex-col px-1 py-0.5 ${isToday ? 'bg-sky-500' : ''}`}>
+      {/* 今日は日付行を緑の帯にして目立たせる(セルは緑の細枠で囲う) */}
+      <span className={`-m-1 mb-0 flex flex-col px-1 py-0.5 ${isToday ? 'bg-emerald-500' : ''}`}>
         <span className="flex min-w-0 items-baseline">
           <span
             className={`shrink-0 text-xs leading-4 ${
@@ -64,7 +65,7 @@ export default function DayCell({ d, ds, isToday, info, temp, habitLayers, logLa
         </span>
         {temp && (
           <span
-            className={`text-[8px] leading-3 ${isToday ? 'text-sky-100' : 'text-slate-400'}`}
+            className={`text-[8px] leading-3 ${isToday ? 'text-emerald-50' : 'text-slate-400'}`}
             title={`最高${temp.max}° / 最低${temp.min}°`}
           >
             {weatherEmoji(temp.code)} {temp.max}/{temp.min}°

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Layer, LogEntry } from '../types'
 import { newId, repo } from '../useAppData'
 import { entrySummary, recentTemplates, splitData } from '../lib/logTemplates'
+import { roundTime5 } from '../lib/dates'
 import BottomModal from './BottomModal'
 import TimeSelect from './TimeSelect'
 
@@ -26,7 +27,8 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
   const [values, setValues] = useState<Record<string, string>>(initial.values)
   // multiselectの「その他」自由入力(カンマ区切りで複数可)
   const [others, setOthers] = useState<Record<string, string>>(initial.others)
-  const [time, setTime] = useState(existing?.time ?? '')
+  // 新規追加は現在時刻(5分丸め)を初期値に。編集は既存の時刻を保持
+  const [time, setTime] = useState(existing ? existing.time : roundTime5())
   const [note, setNote] = useState(existing?.note ?? '')
   const [error, setError] = useState('')
   const [templates, setTemplates] = useState<LogEntry[]>([])
