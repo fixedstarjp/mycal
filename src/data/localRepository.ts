@@ -89,6 +89,13 @@ export class LocalStorageRepository implements Repository {
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
   }
 
+  async getRecentLogEntries(layerId: string, limit: number): Promise<LogEntry[]> {
+    return load<LogEntry[]>(KEYS.logs, [])
+      .filter((e) => e.layerId === layerId)
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time))
+      .slice(0, limit)
+  }
+
   async saveLogEntry(entry: LogEntry): Promise<void> {
     const entries = load<LogEntry[]>(KEYS.logs, [])
     const idx = entries.findIndex((e) => e.id === entry.id)

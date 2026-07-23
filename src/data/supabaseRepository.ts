@@ -99,6 +99,18 @@ export class SupabaseRepository implements Repository {
     return (data as LogEntryRow[]).map(logFromRow)
   }
 
+  async getRecentLogEntries(layerId: string, limit: number): Promise<LogEntry[]> {
+    const { data, error } = await this.client
+      .from('log_entries')
+      .select('id,layer_id,date,time,data,note')
+      .eq('layer_id', layerId)
+      .order('date', { ascending: false })
+      .order('time', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return (data as LogEntryRow[]).map(logFromRow)
+  }
+
   async saveLogEntry(entry: LogEntry): Promise<void> {
     // 新規作成時のIDはクライアント採番のUUIDをそのまま使う
     const { error } = await this.client.from('log_entries').upsert(logToRow(entry))
