@@ -122,6 +122,7 @@ function LayerEditForm({
   const [color, setColor] = useState(layer.color)
   const [habitKind, setHabitKind] = useState(layer.config.habitKind ?? 'bool')
   const [habitUnit, setHabitUnit] = useState(layer.config.habitUnit ?? '')
+  const [habitIcon, setHabitIcon] = useState(layer.config.icon ?? '')
   const [fields, setFields] = useState<FieldDef[]>(layer.config.fields ?? [])
   const [menus, setMenus] = useState<HabitMenu[]>(layer.config.menus ?? [])
   const [error, setError] = useState('')
@@ -160,6 +161,7 @@ function LayerEditForm({
           ? {
               habitKind,
               habitUnit: habitUnit || undefined,
+              icon: habitIcon.trim() || undefined,
               menus: menus.length > 0 ? menus.map((m) => ({ ...m, name: m.name.trim() })) : undefined,
             }
           : {
@@ -233,6 +235,19 @@ function LayerEditForm({
                   />
                 </label>
               )}
+
+              <label className="block">
+                <span className="mb-1 block text-xs text-slate-500">
+                  達成日のマーク(絵文字・任意) — 未設定はレイヤー色のドット
+                </span>
+                <input
+                  value={habitIcon}
+                  onChange={(e) => setHabitIcon(e.target.value.trim())}
+                  placeholder="例: 💪"
+                  maxLength={4}
+                  className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-center text-base text-slate-200"
+                />
+              </label>
 
               {/* メニュー: 例) A=腹筋・ベンチプレス / B=デッドリフト・腕 */}
               <div className="space-y-2 pt-2">

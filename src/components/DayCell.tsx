@@ -127,14 +127,21 @@ export default function DayCell({
       <span className="mt-auto flex flex-wrap items-center gap-1">
         {habitLayers
           .filter((l) => info?.habits.has(l.id))
-          .map((l) => (
-            <span
-              key={l.id}
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: l.color }}
-              title={l.name}
-            />
-          ))}
+          .map((l) =>
+            l.config.icon ? (
+              // 絵文字が設定された習慣は達成日にその絵文字を出す(筋トレ→💪など)
+              <span key={l.id} className="text-[11px] leading-3" title={l.name}>
+                {l.config.icon}
+              </span>
+            ) : (
+              <span
+                key={l.id}
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: l.color }}
+                title={l.name}
+              />
+            ),
+          )}
         {logLayers.map((l) => {
           const n = info?.logCounts.get(l.id) ?? 0
           if (n === 0) return null

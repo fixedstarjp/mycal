@@ -25,6 +25,7 @@ export interface LayerConfig {
   // habit型: bool(やった/やらない) or number(読書30分など)
   habitKind?: HabitValueKind
   habitUnit?: string // 数値習慣の単位(分、セット等)
+  icon?: string // habit型: 達成日にカレンダーへ出す絵文字(未設定はレイヤー色のドット)
   menus?: HabitMenu[] // habit型: A/Bセットなどのメニュー(任意)
   // log型: フィールド定義
   fields?: FieldDef[]
