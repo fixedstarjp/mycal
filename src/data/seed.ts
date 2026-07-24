@@ -37,6 +37,7 @@ export const seedLayers: Layer[] = [
     config: {
       habitKind: 'number',
       habitUnit: 'セット',
+      icon: '💪',
       menus: [
         { name: 'A', items: ['腹筋', 'ベンチプレス'] },
         { name: 'B', items: ['デッドリフト', '腕'] },

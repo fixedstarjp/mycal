@@ -69,14 +69,20 @@ export default function WeekView({ anchor, data, onSelectDate, onMove }: Props) 
                 {getHolidayName(d) && (
                   <span className="text-[10px] text-rose-400">{getHolidayName(d)}</span>
                 )}
-                <span className="flex gap-1">
-                  {habits.map((l) => (
-                    <span
-                      key={l.id}
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: l.color }}
-                    />
-                  ))}
+                <span className="flex items-center gap-1">
+                  {habits.map((l) =>
+                    l.config.icon ? (
+                      <span key={l.id} className="text-xs leading-none" title={l.name}>
+                        {l.config.icon}
+                      </span>
+                    ) : (
+                      <span
+                        key={l.id}
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: l.color }}
+                      />
+                    ),
+                  )}
                 </span>
               </div>
               <ul className="mt-1 space-y-0.5">
