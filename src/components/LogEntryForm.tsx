@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import type { Layer, LogEntry } from '../types'
+import { useEffect, useMemo, useState } from 'react'
+import type { FieldDef, Layer, LogEntry } from '../types'
 import { newId, repo } from '../useAppData'
-import { entrySummary, recentTemplates, splitData } from '../lib/logTemplates'
+import { optionFrequency, orderOptions, splitData } from '../lib/logTemplates'
 import { roundTime5 } from '../lib/dates'
 import BottomModal from './BottomModal'
 import TimeSelect from './TimeSelect'
@@ -14,48 +14,49 @@ interface Props {
   onSaved: () => void
 }
 
-// 入力欄はモバイルでの押しやすさを優先して大きめ(py-3・text-base)
 const INPUT = 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-3 text-base text-slate-200'
+// 食材などのチップは数が多いので小さめ
+const CHIP = 'rounded-full px-2.5 py-1 text-sm'
 
 export default function LogEntryForm({ date, layer, existing, onClose, onSaved }: Props) {
   const fields = layer.config.fields ?? []
   const hideNote = layer.config.hideNote ?? false
-  // 自由記述(長文)を含むレイヤー(日記など)ではテンプレは出さない
-  const showTemplates = !existing && !fields.some((f) => f.type === 'textarea')
+  // 時間帯などの単一選択フィールド(先頭のselect)を「文脈」として頻度集計に使う
+  const slotKey = fields.find((f) => f.type === 'select')?.key ?? null
+  const contentKey = fields.find((f) => f.type === 'multiselect')?.key ?? null
 
   const initial = splitData(fields, existing?.data)
   const [values, setValues] = useState<Record<string, string>>(initial.values)
-  // multiselectの「その他」自由入力(カンマ区切りで複数可)
   const [others, setOthers] = useState<Record<string, string>>(initial.others)
-  // 新規追加は現在時刻(5分丸め)を初期値に。編集は既存の時刻を保持
   const [time, setTime] = useState(existing ? existing.time : roundTime5())
   const [note, setNote] = useState(existing?.note ?? '')
   const [error, setError] = useState('')
-  const [templates, setTemplates] = useState<LogEntry[]>([])
+  const [recent, setRecent] = useState<LogEntry[]>([])
 
-  // 直近の記録から「よく使う」候補を作る(追加時のみ)
+  // 過去の記録を読み込み、時間帯ごとの「よく食べる」頻度を集計する
   useEffect(() => {
-    if (!showTemplates) return
     let cancelled = false
-    repo.getRecentLogEntries(layer.id, 30).then((recent) => {
-      if (!cancelled) setTemplates(recentTemplates(fields, recent, 5))
+    repo.getRecentLogEntries(layer.id, 300).then((rows) => {
+      if (!cancelled) setRecent(rows)
     })
     return () => {
       cancelled = true
     }
-    // layer.idごとに一度だけ取得すればよい
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layer.id])
 
-  // テンプレをタップしたらフォームに流し込む(時刻は今の入力を維持)
-  function applyTemplate(entry: LogEntry) {
-    const { values: v, others: o } = splitData(fields, entry.data)
-    setValues(v)
-    setOthers(o)
-    if (!hideNote) setNote(entry.note)
+  const freqBySlot = useMemo(() => {
+    if (!contentKey) return null
+    return optionFrequency(recent, contentKey, slotKey)
+  }, [recent, contentKey, slotKey])
+
+  // 現在の時間帯でよく食べる順に並べた選択肢
+  function orderedOptions(f: FieldDef): string[] {
+    const opts = f.options ?? []
+    if (f.type !== 'multiselect' || !freqBySlot) return opts
+    const slot = slotKey ? values[slotKey] : ''
+    return orderOptions(opts, freqBySlot[slot ?? ''])
   }
 
-  // multiselectはカンマ区切り文字列で保持する
   function toggleMulti(key: string, opt: string) {
     setValues((v) => {
       const cur = v[key] ? v[key].split(',') : []
@@ -64,15 +65,18 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
     })
   }
 
-  // チップ選択+その他入力を結合した最終値
-  function finalValue(f: (typeof fields)[number]): string {
-    if (f.type !== 'multiselect') return values[f.key]
-    const chips = values[f.key] ? values[f.key].split(',') : []
-    const free = (others[f.key] ?? '')
+  // その他の自由入力を項目配列に
+  function freeItems(key: string): string[] {
+    return (others[key] ?? '')
       .split(/[、,]/)
       .map((s) => s.trim())
       .filter(Boolean)
-    return [...chips, ...free].join(',')
+  }
+
+  function finalValue(f: FieldDef): string {
+    if (f.type !== 'multiselect') return values[f.key]
+    const chips = values[f.key] ? values[f.key].split(',') : []
+    return [...chips, ...freeItems(f.key)].join(',')
   }
 
   async function submit() {
@@ -100,6 +104,23 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
       data: dataObj,
       note: hideNote ? '' : note,
     })
+
+    // 「その他」で入れた新しい食材を選択肢に自動登録する
+    let newFields = fields
+    let changed = false
+    for (const f of fields) {
+      if (f.type !== 'multiselect') continue
+      const opts = f.options ?? []
+      const added = freeItems(f.key).filter((x) => !opts.includes(x))
+      if (added.length > 0) {
+        newFields = newFields.map((nf) => (nf.key === f.key ? { ...nf, options: [...opts, ...added] } : nf))
+        changed = true
+      }
+    }
+    if (changed) {
+      await repo.saveLayer({ ...layer, config: { ...layer.config, fields: newFields } })
+    }
+
     onSaved()
   }
 
@@ -115,26 +136,6 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
       onClose={onClose}
       onSubmit={submit}
     >
-      {/* 最近の記録をワンタップで再入力(タップでフォームに反映→保存でOK) */}
-      {templates.length > 0 && (
-        <div>
-          <span className="mb-1 block text-xs text-slate-500">最近の記録(タップで再入力)</span>
-          <div className="flex flex-wrap gap-2">
-            {templates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => applyTemplate(t)}
-                className="max-w-full truncate rounded-full bg-slate-700 px-3 py-1.5 text-sm text-slate-100 active:bg-slate-600"
-                title={entrySummary(fields, t)}
-              >
-                {entrySummary(fields, t)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center gap-3">
         <span className="w-20 shrink-0 text-xs text-slate-500">時刻(任意)</span>
         <TimeSelect value={time} onChange={setTime} />
@@ -154,7 +155,7 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
                   key={opt}
                   type="button"
                   onClick={() => setValues((v) => ({ ...v, [f.key]: opt }))}
-                  className={`rounded-full px-4 py-2 text-base ${
+                  className={`${CHIP} ${
                     values[f.key] === opt ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
@@ -164,15 +165,15 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
             </div>
           ) : f.type === 'multiselect' ? (
             <div>
-              <div className="flex flex-wrap gap-2">
-                {(f.options ?? []).map((opt) => {
+              <div className="flex flex-wrap gap-1.5">
+                {orderedOptions(f).map((opt) => {
                   const selected = (values[f.key] ? values[f.key].split(',') : []).includes(opt)
                   return (
                     <button
                       key={opt}
                       type="button"
                       onClick={() => toggleMulti(f.key, opt)}
-                      className={`rounded-full px-4 py-2 text-base ${
+                      className={`${CHIP} ${
                         selected ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400'
                       }`}
                     >
@@ -184,7 +185,7 @@ export default function LogEntryForm({ date, layer, existing, onClose, onSaved }
               <input
                 value={others[f.key] ?? ''}
                 onChange={(e) => setOthers((o) => ({ ...o, [f.key]: e.target.value }))}
-                placeholder="その他(自由入力、カンマ区切りで複数)"
+                placeholder="その他(新しい食材は自動で選択肢に追加)"
                 className={`${INPUT} mt-2`}
               />
             </div>
