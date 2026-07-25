@@ -1,7 +1,6 @@
 import type { FieldDef, LogEntry } from '../types'
 
-// ログのフィールド値を、フォームの状態(チップ選択 values と その他自由入力 others)に分解する。
-// 既存エントリの編集・テンプレ流用の両方で使う
+// ログのフィールド値を、フォームの状態(チップ選択 values と その他自由入力 others)に分解する
 export function splitData(
   fields: FieldDef[],
   data: Record<string, string | number> | undefined,
@@ -21,26 +20,33 @@ export function splitData(
   return { values, others }
 }
 
-// 記録の要約ラベル(例: "朝 / 白米,味噌汁")
-export function entrySummary(fields: FieldDef[], entry: LogEntry): string {
-  return fields
-    .map((f) => entry.data[f.key])
-    .filter((v) => v !== undefined && v !== '')
-    .join(' / ')
+// 過去のログから、multiselectの各項目が「どの時間帯(select値)で何回選ばれたか」を数える。
+// 返り値: { slot値: { 食材: 回数 } }。slotKeyがnullなら全体を '' バケットに集計
+export function optionFrequency(
+  entries: LogEntry[],
+  contentKey: string,
+  slotKey: string | null,
+): Record<string, Record<string, number>> {
+  const map: Record<string, Record<string, number>> = {}
+  for (const e of entries) {
+    const slot = slotKey ? String(e.data[slotKey] ?? '') : ''
+    const raw = e.data[contentKey]
+    if (raw === undefined) continue
+    const items = String(raw)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    map[slot] ??= {}
+    for (const it of items) map[slot][it] = (map[slot][it] ?? 0) + 1
+  }
+  return map
 }
 
-// 直近の記録から「よく使うテンプレ」を作る。
-// entriesは新しい順で渡す前提。内容が同じものは重複排除し、先頭からlimit件返す
-export function recentTemplates(fields: FieldDef[], entries: LogEntry[], limit = 5): LogEntry[] {
-  const seen = new Set<string>()
-  const out: LogEntry[] = []
-  for (const e of entries) {
-    const sig = JSON.stringify(fields.map((f) => e.data[f.key] ?? ''))
-    if (sig === JSON.stringify(fields.map(() => ''))) continue // 空は除外
-    if (seen.has(sig)) continue
-    seen.add(sig)
-    out.push(e)
-    if (out.length >= limit) break
-  }
-  return out
+// 選択肢を、指定した時間帯での「よく食べる順」に並べ替える(回数が多い順、同数は元の順)
+export function orderOptions(options: string[], freqForSlot: Record<string, number> | undefined): string[] {
+  if (!freqForSlot) return options
+  return options
+    .map((o, i) => ({ o, i, n: freqForSlot[o] ?? 0 }))
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .map((x) => x.o)
 }
