@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { addDays, format } from 'date-fns'
 import type { AppEvent } from '../types'
 import { newId, repo } from '../useAppData'
 import { addOneHour, toDateStr } from '../lib/dates'
-import { getIconPresets } from '../lib/iconPresets'
+import { addIconPreset, getIconPresets, iconFrequency, orderIcons } from '../lib/iconPresets'
 import BottomModal from './BottomModal'
 import TimeSelect from './TimeSelect'
 
@@ -15,8 +15,21 @@ interface Props {
 }
 
 export default function EventForm({ date, existing, onClose, onSaved }: Props) {
-  // アイコンプリセットは設定画面で編集できる(開いた時点の内容を使う)
-  const [iconPresets] = useState(() => getIconPresets())
+  // アイコンプリセット(設定画面で編集可)を、よく使う順に並べて表示する
+  const [presets, setPresets] = useState(() => getIconPresets())
+  const [iconFreq, setIconFreq] = useState<Record<string, number>>({})
+  const iconPresets = useMemo(() => orderIcons(presets, iconFreq), [presets, iconFreq])
+
+  // 過去の予定からアイコンの使用頻度を集計(最近使ったものが上に来る)
+  useEffect(() => {
+    let cancelled = false
+    repo.getRecentEvents(200).then((events) => {
+      if (!cancelled) setIconFreq(iconFrequency(events))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const [title, setTitle] = useState(existing?.title ?? '')
   const [icon, setIcon] = useState(existing?.icon ?? '')
   // 新規作成時のデフォルトは9:00開始・10:00終了
@@ -58,6 +71,8 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
       icon,
       note,
     })
+    // 自由入力で使った新しいアイコンを、次回から選べるよう自動で候補に追加
+    if (icon && !presets.includes(icon)) setPresets(addIconPreset(icon))
     onSaved()
   }
 
@@ -110,7 +125,9 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
             className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-center text-sm text-slate-200"
           />
         </div>
-        <p className="mt-1 text-[10px] text-slate-600">プリセットは 設定 → 予定アイコン で編集できます</p>
+        <p className="mt-1 text-[10px] text-slate-600">
+          よく使う順に並びます。新しい絵文字は自動で候補に追加(設定 → 予定アイコン で編集可)
+        </p>
       </div>
 
       {/* 時刻: スマホではみ出さないよう「開始」「終了」を縦に並べる。

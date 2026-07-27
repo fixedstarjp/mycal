@@ -134,6 +134,12 @@ export class LocalStorageRepository implements Repository {
     save(KEYS.events, events)
   }
 
+  async getRecentEvents(limit: number): Promise<AppEvent[]> {
+    return load<AppEvent[]>(KEYS.events, [])
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, limit)
+  }
+
   async deleteEvent(eventId: string): Promise<void> {
     save(KEYS.events, load<AppEvent[]>(KEYS.events, []).filter((e) => e.id !== eventId))
   }

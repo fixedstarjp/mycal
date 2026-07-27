@@ -178,6 +178,20 @@ export class SupabaseRepository implements Repository {
     if (error) throw error
   }
 
+  async getRecentEvents(limit: number): Promise<AppEvent[]> {
+    const { data, error } = await this.client
+      .from('events')
+      .select('id,date,end_date,time,end_time,title,icon,note')
+      .order('date', { ascending: false })
+      .limit(limit)
+    if (error) {
+      // events/end_date未適用でもアイコン候補が無いだけで済ませる
+      if (error.code === '42P01' || error.code === '42703') return []
+      throw error
+    }
+    return (data as AppEventRow[]).map(eventFromRow)
+  }
+
   async deleteEvent(eventId: string): Promise<void> {
     const { error } = await this.client.from('events').delete().eq('id', eventId)
     if (error) throw error
