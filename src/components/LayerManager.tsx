@@ -4,7 +4,8 @@ import { newId, repo } from '../useAppData'
 import type { FieldDef, FieldType, HabitMenu, Layer } from '../types'
 import BottomModal from './BottomModal'
 
-const PALETTE = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#a855f7', '#eab308', '#14b8a6', '#ef4444']
+// マットブラック×ゴールドに馴染む、彩度を抑えた配色
+const PALETTE = ['#e0a028', '#6fae5f', '#4e9c8f', '#c0663f', '#6b7fb5', '#8b95a3', '#b8873f', '#a5555a']
 
 export default function LayerManager({ data, onBack }: { data: AppData; onBack?: () => void }) {
   const [editing, setEditing] = useState<Layer | null>(null)

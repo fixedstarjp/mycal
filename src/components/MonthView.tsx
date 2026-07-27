@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
-import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
-import { isAchieved } from '../lib/stats'
+import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr, weekDays } from '../lib/dates'
+import { calcTodayStatus, isAchieved } from '../lib/stats'
 import { isMultiDay, weekEventBars } from '../lib/events'
 import type { TempsByDate } from '../lib/weather'
 import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe'
@@ -45,6 +45,18 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
   const visibleLayers = data.layers.filter((l) => !l.archived && l.visible)
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
   const logLayers = visibleLayers.filter((l) => l.type === 'log')
+
+  // 今日のステータス(達成数・今週のべ回数・最長の連続日数)
+  const status = useMemo(
+    () =>
+      calcTodayStatus(
+        data.layers,
+        data.habitEntries,
+        today,
+        weekDays(new Date(today + 'T00:00:00')).map(toDateStr),
+      ),
+    [data.layers, data.habitEntries, today],
+  )
 
   // date -> 集計のインデックスを作る
   const byDate = useMemo(() => {
@@ -99,9 +111,38 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         </button>
       </header>
 
+      {/* 今日のステータス: 積み上げが一目で分かるバー */}
+      <div className="mx-2 mb-1 flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-1.5">
+        <span className="flex items-baseline gap-1">
+          <span className="text-[10px] text-slate-500">今日</span>
+          <span className="text-base font-bold leading-none text-sky-400">{status.todayDone}</span>
+          <span className="text-[10px] text-slate-500">/{status.todayTotal}</span>
+        </span>
+        <span className="h-4 w-px bg-slate-700" />
+        <span className="flex items-baseline gap-1">
+          <span className="text-[10px] text-slate-500">今週</span>
+          <span className="text-base font-bold leading-none text-slate-200">{status.weekDone}</span>
+          <span className="text-[10px] text-slate-500">回</span>
+        </span>
+        {status.topStreak && (
+          <>
+            <span className="h-4 w-px bg-slate-700" />
+            <span className="flex min-w-0 items-baseline gap-1">
+              <span className="truncate text-[10px] text-slate-500">
+                {status.topStreak.icon || '🔥'} {status.topStreak.name}
+              </span>
+              <span className="text-base font-bold leading-none" style={{ color: status.topStreak.color }}>
+                {status.topStreak.days}
+              </span>
+              <span className="text-[10px] text-slate-500">日連続</span>
+            </span>
+          </>
+        )}
+      </div>
+
       <div className="grid grid-cols-7 px-2 text-center text-xs">
         {WEEKDAY_LABELS.map((w, i) => (
-          <div key={w} className={`py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-sky-400' : 'text-slate-500'}`}>
+          <div key={w} className={`py-1 ${i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>
             {w}
           </div>
         ))}
@@ -149,7 +190,7 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
                         key={b.id}
                         title={b.title}
                         style={{ gridColumn: `${b.startCol + 1} / span ${b.span}`, gridRow: b.lane + 1 }}
-                        className={`mx-px flex items-center gap-0.5 overflow-hidden bg-indigo-500 px-1 text-[9px] leading-4 text-white ${
+                        className={`mx-px flex items-center gap-0.5 overflow-hidden bg-sky-600 px-1 text-[9px] font-medium leading-4 text-slate-900 ${
                           b.roundLeft ? 'ml-0.5 rounded-l' : ''
                         } ${b.roundRight ? 'mr-0.5 rounded-r' : ''}`}
                       >

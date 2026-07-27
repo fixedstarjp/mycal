@@ -28,21 +28,24 @@ function chunk(type, data) {
 }
 
 function makePng(size) {
-  const bg = [30, 41, 59] // slate-800
-  const fg = [56, 189, 248] // sky-400
+  const bg = [10, 10, 11] // マットブラック
+  const fg = [212, 175, 55] // ゴールド
   const rows = []
   const cx = size / 2
+  const cy = size / 2
+  // ダンベル: 中央のバー + 内側プレート(2枚) + 外側プレート(2枚)
+  const inDumbbell = (x, y) => {
+    const u = Math.abs(x - cx) / size // 中心からの横距離(0-0.5)
+    const v = Math.abs(y - cy) / size // 中心からの縦距離(0-0.5)
+    if (u < 0.22 && v < 0.045) return true // バー
+    if (u >= 0.22 && u < 0.3 && v < 0.22) return true // 内側プレート
+    if (u >= 0.33 && u < 0.39 && v < 0.13) return true // 外側プレート
+    return false
+  }
   for (let y = 0; y < size; y++) {
     const row = Buffer.alloc(1 + size * 3)
     for (let x = 0; x < size; x++) {
-      // 「M」を模した2本のV字ストローク
-      const u = (x - cx) / (size * 0.32)
-      const v = (y - size * 0.3) / (size * 0.45)
-      const inM =
-        v >= 0 &&
-        v <= 1 &&
-        (Math.abs(Math.abs(u) - (1 - v) * 0.9) < 0.16 || (Math.abs(u) > 0.75 && Math.abs(u) < 1.05))
-      const [r, g, b] = inM ? fg : bg
+      const [r, g, b] = inDumbbell(x, y) ? fg : bg
       row[1 + x * 3] = r
       row[1 + x * 3 + 1] = g
       row[1 + x * 3 + 2] = b

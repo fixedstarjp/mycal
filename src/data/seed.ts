@@ -33,7 +33,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-workout',
     name: '筋トレ',
     type: 'habit',
-    color: '#f97316',
+    color: '#e0a028',
     config: {
       habitKind: 'number',
       habitUnit: 'セット',
@@ -51,7 +51,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-walking',
     name: 'ウォーキング',
     type: 'habit',
-    color: '#22c55e',
+    color: '#6fae5f',
     config: { habitKind: 'number', habitUnit: '分' },
     sortOrder: 1,
     archived: false,
@@ -61,7 +61,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-meditation',
     name: '瞑想',
     type: 'habit',
-    color: '#14b8a6',
+    color: '#4e9c8f',
     config: { habitKind: 'bool' },
     sortOrder: 2,
     archived: false,
@@ -71,7 +71,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-trade',
     name: '株の売買',
     type: 'log',
-    color: '#3b82f6',
+    color: '#8b95a3',
     config: {
       fields: [
         { key: 'symbol', label: '銘柄', type: 'text', required: true },
@@ -88,7 +88,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-meal',
     name: '食事記録',
     type: 'log',
-    color: '#ec4899',
+    color: '#c0663f',
     config: {
       hideNote: true,
       fields: [
@@ -110,7 +110,7 @@ export const seedLayers: Layer[] = [
     id: 'layer-diary',
     name: '日記',
     type: 'log',
-    color: '#a855f7',
+    color: '#6b7fb5',
     config: {
       hideNote: true,
       fields: [
