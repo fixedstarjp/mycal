@@ -58,7 +58,7 @@ export default function DayCell({
               : holiday || dow === 0
                 ? 'text-rose-400'
                 : dow === 6
-                  ? 'text-sky-400'
+                  ? 'text-blue-400'
                   : 'text-slate-300'
           }`}
         >

@@ -188,7 +188,7 @@ export default function Settings({ data }: { data: AppData }) {
         <section>
           <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">このアプリについて</h2>
           <div className="rounded-xl bg-slate-800/60 p-4 text-sm text-slate-400">
-            <p>MyCal v1 — 自分専用ライフログカレンダー</p>
+            <p>メンズカレンダー — 筋トレ・食事・日記を積み上げる</p>
             <p className="mt-1 text-xs text-slate-500">
               {isSupabaseMode
                 ? 'データはSupabase(RLS有効)に保存されています。'
