@@ -25,6 +25,8 @@ export interface Repository {
   getEvents(dateFrom: string, dateTo: string): Promise<AppEvent[]>
   saveEvent(event: AppEvent): Promise<void>
   deleteEvent(eventId: string): Promise<void>
+  // 直近の予定(新しい順)。よく使うアイコンの集計に使う
+  getRecentEvents(limit: number): Promise<AppEvent[]>
 
   // ToDo(期日は任意)。件数が少ないので範囲指定なしで全件返す
   getTodos(): Promise<Todo[]>

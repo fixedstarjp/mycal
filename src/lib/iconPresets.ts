@@ -32,3 +32,23 @@ export function removeIconPreset(emoji: string): string[] {
   setIconPresets(next)
   return next
 }
+
+// 過去の予定からアイコンの使用回数を数える(空アイコンは除く)
+export function iconFrequency(events: { icon: string }[]): Record<string, number> {
+  const freq: Record<string, number> = {}
+  for (const e of events) {
+    if (!e.icon) continue
+    freq[e.icon] = (freq[e.icon] ?? 0) + 1
+  }
+  return freq
+}
+
+// プリセットを「よく使う順」に並べる(同数は元の順を保つ)。
+// 過去に使ったがプリセットにないアイコンは先頭側に混ぜる(最近使ったものが選べる)
+export function orderIcons(presets: string[], freq: Record<string, number>): string[] {
+  const extras = Object.keys(freq).filter((e) => !presets.includes(e))
+  return [...presets, ...extras]
+    .map((e, i) => ({ e, i, n: freq[e] ?? 0 }))
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .map((x) => x.e)
+}
