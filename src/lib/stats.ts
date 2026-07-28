@@ -28,46 +28,29 @@ export function calcMonthlyRate(entries: HabitEntry[], month: string, daysInMont
   return Math.round((achievedDays / daysInMonth) * 100)
 }
 
-export interface TodayStatus {
-  todayDone: number // 今日達成した習慣の数
-  todayTotal: number // 対象の習慣数
-  weekDone: number // 今週(週の初日〜今日)の達成のべ回数
-  topStreak: { name: string; icon: string; color: string; days: number } | null
+export interface HabitTodayStatus {
+  layer: Layer
+  doneToday: boolean // 今日達成したか
+  streak: number // 連続日数(0なら未達成)
 }
 
-// カレンダー上部の「今日のステータス」バー用の集計。
-// weekDates は今週の日付(週初め〜)を渡す
-export function calcTodayStatus(
+// カレンダー上部の習慣チップ用。習慣ごとに「今日やったか」と連続日数を返す
+export function calcHabitStatuses(
   layers: Layer[],
   entries: HabitEntry[],
   today: string,
-  weekDates: string[],
-): TodayStatus {
-  const habits = layers.filter((l) => l.type === 'habit' && !l.archived)
+): HabitTodayStatus[] {
   const achieved = entries.filter(isAchieved)
-
-  const todayDone = habits.filter((l) =>
-    achieved.some((e) => e.layerId === l.id && e.date === today),
-  ).length
-
-  // 今週は未来日を除く(今日まで)
-  const pastWeek = new Set(weekDates.filter((d) => d <= today))
-  const weekDone = achieved.filter(
-    (e) => pastWeek.has(e.date) && habits.some((l) => l.id === e.layerId),
-  ).length
-
-  let topStreak: TodayStatus['topStreak'] = null
-  for (const l of habits) {
-    const days = calcStreak(
-      achieved.filter((e) => e.layerId === l.id),
-      today,
-    )
-    if (days > 0 && (!topStreak || days > topStreak.days)) {
-      topStreak = { name: l.name, icon: l.config.icon ?? '', color: l.color, days }
-    }
-  }
-
-  return { todayDone, todayTotal: habits.length, weekDone, topStreak }
+  return layers
+    .filter((l) => l.type === 'habit' && !l.archived)
+    .map((layer) => {
+      const mine = achieved.filter((e) => e.layerId === layer.id)
+      return {
+        layer,
+        doneToday: mine.some((e) => e.date === today),
+        streak: calcStreak(mine, today),
+      }
+    })
 }
 
 function prevDate(date: string): string {
