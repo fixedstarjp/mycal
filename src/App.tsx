@@ -7,10 +7,13 @@ import SearchView from './components/SearchView'
 import TodoView from './components/TodoView'
 import Settings from './components/Settings'
 import Login from './components/Login'
-import { useAppData } from './useAppData'
+import { useAppData, newId, repo } from './useAppData'
 import { useAuth } from './useAuth'
 import { isSupabaseMode } from './data/supabaseClient'
 import { fetchWeather, type TempsByDate } from './lib/weather'
+import { checkPresence, type Transition } from './lib/location'
+import { OUTING_FIELD_KEY, OUTING_LAYER_NAME } from './data/seed'
+import { roundTime5, todayStr } from './lib/dates'
 
 type View = 'month' | 'week' | 'todo' | 'search' | 'settings'
 
@@ -67,6 +70,29 @@ function MainApp() {
     loadWeather()
   }, [loadWeather])
 
+  // 起動時に現在地を確認し、前回から自宅を出入りしていれば記録を提案する(半自動)
+  const [outing, setOuting] = useState<Transition>(null)
+  useEffect(() => {
+    checkPresence().then(setOuting)
+  }, [])
+
+  async function recordOuting() {
+    const kind = outing
+    setOuting(null)
+    if (!kind) return
+    const layer = data.layers.find((l) => l.name === OUTING_LAYER_NAME && !l.archived)
+    if (!layer) return
+    await repo.saveLogEntry({
+      id: newId(),
+      layerId: layer.id,
+      date: todayStr(),
+      time: roundTime5(),
+      data: { [OUTING_FIELD_KEY]: kind },
+      note: '',
+    })
+    data.reload()
+  }
+
   const nav: { key: View; label: string; icon: string }[] = [
     { key: 'month', label: 'カレンダー', icon: '📅' },
     { key: 'week', label: '週', icon: '📋' },
@@ -77,6 +103,29 @@ function MainApp() {
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col bg-slate-900 pt-[env(safe-area-inset-top)] text-slate-200">
+      {/* 外出/帰宅の検知バナー。時刻は「今」で記録される点を明示する */}
+      {outing && (
+        <div className="mx-2 mt-1 flex shrink-0 items-center gap-2 rounded-lg border border-sky-600/50 bg-sky-900/30 px-3 py-2">
+          <span className="text-sm text-slate-200">
+            📍 {outing}を検知
+            <span className="ml-1 text-xs text-slate-400">({roundTime5()}時点)</span>
+          </span>
+          <button
+            onClick={recordOuting}
+            className="ml-auto shrink-0 rounded-full bg-sky-600 px-3 py-1 text-xs font-bold text-slate-900 active:bg-sky-500"
+          >
+            記録する
+          </button>
+          <button
+            onClick={() => setOuting(null)}
+            className="shrink-0 px-1 text-slate-500"
+            aria-label="閉じる"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <main className="min-h-0 flex-1">
         {view === 'month' ? (
           <MonthView
