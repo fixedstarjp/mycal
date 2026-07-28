@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import type { AppData } from '../useAppData'
-import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr, weekDays } from '../lib/dates'
-import { calcTodayStatus, isAchieved } from '../lib/stats'
+import { newId, repo } from '../useAppData'
+import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
+import { calcHabitStatuses, isAchieved } from '../lib/stats'
 import { isMultiDay, weekEventBars } from '../lib/events'
 import type { TempsByDate } from '../lib/weather'
 import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe'
@@ -46,17 +47,27 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
   const habitLayers = visibleLayers.filter((l) => l.type === 'habit')
   const logLayers = visibleLayers.filter((l) => l.type === 'log')
 
-  // 今日のステータス(達成数・今週のべ回数・最長の連続日数)
-  const status = useMemo(
-    () =>
-      calcTodayStatus(
-        data.layers,
-        data.habitEntries,
-        today,
-        weekDays(new Date(today + 'T00:00:00')).map(toDateStr),
-      ),
+  // 今日の習慣の状況(チップ表示・タップで記録)
+  const habitStatuses = useMemo(
+    () => calcHabitStatuses(data.layers, data.habitEntries, today),
     [data.layers, data.habitEntries, today],
   )
+
+  // チップのタップで今日の達成を切り替える(1タップで記録完了)
+  async function toggleToday(status: (typeof habitStatuses)[number]) {
+    const { layer, doneToday } = status
+    const cur = data.habitEntries.find((e) => e.layerId === layer.id && e.date === today)
+    const kind = layer.config.habitKind ?? 'bool'
+    await repo.upsertHabitEntry({
+      id: cur?.id ?? newId(),
+      layerId: layer.id,
+      date: today,
+      valueBool: kind === 'bool' ? !doneToday : null,
+      valueNum: kind === 'number' ? (doneToday ? 0 : (cur?.valueNum || 1)) : null,
+      note: cur?.note ?? '',
+    })
+    data.reload()
+  }
 
   // date -> 集計のインデックスを作る
   const byDate = useMemo(() => {
@@ -111,34 +122,31 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         </button>
       </header>
 
-      {/* 今日のステータス: 積み上げが一目で分かるバー */}
-      <div className="mx-2 mb-1 flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-1.5">
-        <span className="flex items-baseline gap-1">
-          <span className="text-[10px] text-slate-500">今日</span>
-          <span className="text-base font-bold leading-none text-sky-400">{status.todayDone}</span>
-          <span className="text-[10px] text-slate-500">/{status.todayTotal}</span>
-        </span>
-        <span className="h-4 w-px bg-slate-700" />
-        <span className="flex items-baseline gap-1">
-          <span className="text-[10px] text-slate-500">今週</span>
-          <span className="text-base font-bold leading-none text-slate-200">{status.weekDone}</span>
-          <span className="text-[10px] text-slate-500">回</span>
-        </span>
-        {status.topStreak && (
-          <>
-            <span className="h-4 w-px bg-slate-700" />
-            <span className="flex min-w-0 items-baseline gap-1">
-              <span className="truncate text-[10px] text-slate-500">
-                {status.topStreak.icon || '🔥'} {status.topStreak.name}
-              </span>
-              <span className="text-base font-bold leading-none" style={{ color: status.topStreak.color }}>
-                {status.topStreak.days}
-              </span>
-              <span className="text-[10px] text-slate-500">日連続</span>
-            </span>
-          </>
-        )}
-      </div>
+      {/* 今日の習慣: タップでその場で記録。達成済みはレイヤー色、🔥は連続日数 */}
+      {habitStatuses.length > 0 && (
+        <div className="mx-2 mb-1 flex gap-1.5 overflow-x-auto pb-0.5">
+          {habitStatuses.map((s) => (
+            <button
+              key={s.layer.id}
+              onClick={() => toggleToday(s)}
+              className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                s.doneToday
+                  ? 'border-transparent font-medium text-slate-900'
+                  : 'border-slate-700 bg-slate-800/40 text-slate-400'
+              }`}
+              style={s.doneToday ? { backgroundColor: s.layer.color } : undefined}
+            >
+              <span>{s.doneToday ? '✓' : s.layer.config.icon || '○'}</span>
+              <span>{s.layer.name}</span>
+              {s.streak > 0 && (
+                <span className={s.doneToday ? 'text-slate-900/70' : 'text-slate-500'}>
+                  🔥{s.streak}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-7 px-2 text-center text-xs">
         {WEEKDAY_LABELS.map((w, i) => (

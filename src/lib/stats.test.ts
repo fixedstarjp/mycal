@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calcMonthlyRate, calcStreak, calcTodayStatus, isAchieved } from './stats'
+import { calcHabitStatuses, calcMonthlyRate, calcStreak, isAchieved } from './stats'
 import type { Layer } from '../types'
 import { addOneHour } from './dates'
 import type { HabitEntry } from '../types'
@@ -60,57 +60,48 @@ describe('calcStreak', () => {
   })
 })
 
-describe('calcTodayStatus', () => {
+describe('calcHabitStatuses', () => {
   const layers: Layer[] = [
     { id: 'gym', name: '筋トレ', type: 'habit', color: '#e0a028', config: { icon: '💪' }, sortOrder: 0, archived: false, visible: true },
     { id: 'walk', name: 'ウォーキング', type: 'habit', color: '#6fae5f', config: {}, sortOrder: 1, archived: false, visible: true },
     { id: 'diary', name: '日記', type: 'log', color: '#6b7fb5', config: {}, sortOrder: 2, archived: false, visible: true },
   ]
-  // 今週(日〜土)。今日は水曜の 2026-07-22
-  const week = ['2026-07-19', '2026-07-20', '2026-07-21', '2026-07-22', '2026-07-23', '2026-07-24', '2026-07-25']
   const today = '2026-07-22'
 
   function e(layerId: string, date: string, over: Partial<HabitEntry> = {}): HabitEntry {
     return { id: `${layerId}-${date}`, layerId, date, valueBool: true, valueNum: null, note: '', ...over }
   }
 
-  it('今日の達成数/習慣数を数える(ログ型は含めない)', () => {
-    const s = calcTodayStatus(layers, [e('gym', today)], today, week)
-    expect(s.todayDone).toBe(1)
-    expect(s.todayTotal).toBe(2) // 習慣は筋トレ・ウォーキングの2つ
+  it('習慣型のみを対象にする(ログ型は含めない)', () => {
+    const s = calcHabitStatuses(layers, [], today)
+    expect(s.map((x) => x.layer.id)).toEqual(['gym', 'walk'])
   })
 
-  it('今週の達成のべ回数を数える(未来日は除く)', () => {
-    const s = calcTodayStatus(
+  it('今日達成した習慣にdoneTodayが立つ', () => {
+    const s = calcHabitStatuses(layers, [e('gym', today)], today)
+    expect(s.find((x) => x.layer.id === 'gym')!.doneToday).toBe(true)
+    expect(s.find((x) => x.layer.id === 'walk')!.doneToday).toBe(false)
+  })
+
+  it('連続日数を習慣ごとに返す', () => {
+    const s = calcHabitStatuses(
       layers,
-      [e('gym', '2026-07-20'), e('walk', '2026-07-20'), e('gym', today), e('gym', '2026-07-24')],
+      [e('gym', '2026-07-20'), e('gym', '2026-07-21'), e('gym', today)],
       today,
-      week,
     )
-    expect(s.weekDone).toBe(3) // 7/24(未来)は数えない
+    expect(s.find((x) => x.layer.id === 'gym')!.streak).toBe(3)
+    expect(s.find((x) => x.layer.id === 'walk')!.streak).toBe(0)
   })
 
-  it('最長の連続日数の習慣を返す(アイコン・色つき)', () => {
-    const s = calcTodayStatus(
-      layers,
-      [e('gym', '2026-07-20'), e('gym', '2026-07-21'), e('gym', today), e('walk', today)],
-      today,
-      week,
-    )
-    expect(s.topStreak).toMatchObject({ name: '筋トレ', icon: '💪', days: 3 })
-  })
-
-  it('未達成(0日)ならtopStreakはnull', () => {
-    const s = calcTodayStatus(layers, [], today, week)
-    expect(s.topStreak).toBeNull()
-    expect(s.todayDone).toBe(0)
-    expect(s.weekDone).toBe(0)
+  it('数値習慣は0なら未達成扱い', () => {
+    const s = calcHabitStatuses(layers, [e('gym', today, { valueBool: null, valueNum: 0 })], today)
+    expect(s.find((x) => x.layer.id === 'gym')!.doneToday).toBe(false)
   })
 
   it('アーカイブ済みの習慣は対象外', () => {
     const archived = layers.map((l) => (l.id === 'walk' ? { ...l, archived: true } : l))
-    const s = calcTodayStatus(archived, [e('gym', today)], today, week)
-    expect(s.todayTotal).toBe(1)
+    const s = calcHabitStatuses(archived, [], today)
+    expect(s.map((x) => x.layer.id)).toEqual(['gym'])
   })
 })
 
