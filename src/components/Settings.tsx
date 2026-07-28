@@ -6,6 +6,16 @@ import { isSupabaseMode } from '../data/supabaseClient'
 import { buildExportData, downloadJson } from '../lib/exportData'
 import { parseExportJson } from '../lib/importData'
 import { addIconPreset, getIconPresets, removeIconPreset } from '../lib/iconPresets'
+import {
+  HOME_RADIUS_M,
+  clearHomeLocation,
+  getCurrentPosition,
+  getHomeLocation,
+  setHomeLocation,
+  setPresenceState,
+} from '../lib/location'
+import { OUTING_LAYER_NAME, outingLayer } from '../data/seed'
+import { newId } from '../useAppData'
 import LayerManager from './LayerManager'
 
 export default function Settings({ data }: { data: AppData }) {
@@ -14,6 +24,35 @@ export default function Settings({ data }: { data: AppData }) {
   const [icons, setIcons] = useState(() => getIconPresets())
   const [newIcon, setNewIcon] = useState('')
   const [showLayers, setShowLayers] = useState(false)
+  const [home, setHome] = useState(() => getHomeLocation())
+  const [homeMsg, setHomeMsg] = useState('')
+
+  // 今いる場所を自宅として登録。記録先の「外出記録」レイヤーが無ければ作る
+  async function registerHome() {
+    setHomeMsg('現在地を取得中...')
+    const pos = await getCurrentPosition()
+    if (!pos) {
+      setHomeMsg('現在地を取得できませんでした(位置情報の許可を確認してください)')
+      return
+    }
+    setHomeLocation({ lat: pos.lat, lon: pos.lon })
+    setPresenceState('home') // 登録した時点では在宅
+    setHome({ lat: pos.lat, lon: pos.lon })
+
+    if (!data.layers.some((l) => l.name === OUTING_LAYER_NAME && !l.archived)) {
+      const maxOrder = Math.max(0, ...data.layers.map((l) => l.sortOrder))
+      await repo.saveLayer(outingLayer(newId(), maxOrder + 1))
+      data.reload()
+    }
+    setHomeMsg(`自宅を登録しました(精度 約${Math.round(pos.accuracy)}m)`)
+  }
+
+  function forgetHome() {
+    if (!confirm('自宅の位置を削除しますか?')) return
+    clearHomeLocation()
+    setHome(null)
+    setHomeMsg('')
+  }
 
   if (showLayers) {
     return <LayerManager data={data} onBack={() => setShowLayers(false)} />
@@ -100,6 +139,49 @@ export default function Settings({ data }: { data: AppData }) {
             >
               Googleアカウントを接続(準備中)
             </button>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">外出の自動記録</h2>
+          <div className="rounded-xl bg-slate-800/60 p-4">
+            {home ? (
+              <>
+                <p className="text-sm text-slate-300">
+                  自宅を登録済み(半径{HOME_RADIUS_M}m以内を在宅と判定)
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  アプリを開いたときに現在地を確認し、前回から出入りがあれば
+                  「出発/帰宅」の記録を提案します。
+                </p>
+                <button
+                  onClick={forgetHome}
+                  className="mt-3 w-full rounded-lg bg-slate-700 py-2.5 text-sm text-slate-300 active:bg-slate-600"
+                >
+                  自宅の位置を削除
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-400">
+                  自宅にいるときに登録すると、外出・帰宅を半自動で記録できます。
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  ※iPhoneの制約でバックグラウンド監視はできないため、検知は
+                  「アプリを開いたとき」、記録される時刻もその時刻になります。
+                </p>
+                <button
+                  onClick={registerHome}
+                  className="mt-3 w-full rounded-lg bg-sky-600 py-2.5 text-sm font-bold text-slate-900 active:bg-sky-500"
+                >
+                  今いる場所を自宅として登録
+                </button>
+              </>
+            )}
+            {homeMsg && <p className="mt-2 text-xs text-slate-400">{homeMsg}</p>}
+            <p className="mt-2 text-[10px] text-slate-600">
+              位置情報はこの端末内にのみ保存され、サーバーには送信されません
+            </p>
           </div>
         </section>
 

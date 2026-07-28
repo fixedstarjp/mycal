@@ -27,7 +27,31 @@ export const MEAL_OPTIONS = [
 ]
 export const MOOD_OPTIONS = ['😄', '🙂', '😐', '😕', '😢']
 
-// v1初期レイヤー: 筋トレ・ウォーキング・瞑想(習慣型)、株の売買・食事記録・日記(ログ型)
+// 外出記録レイヤー: 位置情報による「出発/帰宅」の記録先。
+// 既存ユーザーには設定画面(自宅の登録時)から同じ定義で作成する
+export const OUTING_LAYER_NAME = '外出記録'
+export const OUTING_FIELD_KEY = 'kind'
+export const OUTING_KINDS = ['出発', '帰宅']
+
+export function outingLayer(id: string, sortOrder = 6): Layer {
+  return {
+    id,
+    name: OUTING_LAYER_NAME,
+    type: 'log',
+    color: '#7a8fa6',
+    config: {
+      hideNote: true,
+      fields: [
+        { key: OUTING_FIELD_KEY, label: '種別', type: 'select', options: OUTING_KINDS, required: true },
+      ],
+    },
+    sortOrder,
+    archived: false,
+    visible: true,
+  }
+}
+
+// v1初期レイヤー: 筋トレ・ウォーキング・瞑想(習慣型)、株の売買・食事記録・日記・外出記録(ログ型)
 export const seedLayers: Layer[] = [
   {
     id: 'layer-workout',
@@ -122,6 +146,7 @@ export const seedLayers: Layer[] = [
     archived: false,
     visible: true,
   },
+  outingLayer('layer-outing'),
 ]
 
 // Google連携が未設定の間に月ビューの見た目を確認するためのモック予定。

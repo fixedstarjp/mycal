@@ -8,7 +8,7 @@ describe('buildExportData', () => {
     const data = buildExportData(seedLayers, [], [], [], [], now)
     expect(data.version).toBe(1)
     expect(data.exportedAt).toBe('2026-07-18T09:00:00.000Z')
-    expect(data.layers).toHaveLength(6)
+    expect(data.layers).toHaveLength(7)
     expect(data.habitEntries).toEqual([])
     expect(data.logEntries).toEqual([])
     expect(data.todos).toEqual([])
