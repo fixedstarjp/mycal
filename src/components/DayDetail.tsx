@@ -5,6 +5,7 @@ import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
 import type { AppEvent, HabitEntry, Layer, LogEntry, Todo } from '../types'
 import { calcStreak, isAchieved } from '../lib/stats'
+import { nextHabitValues } from '../lib/habits'
 import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
 import { eventEndDate, eventOccursOn } from '../lib/events'
@@ -98,18 +99,14 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
   }
 
   // メニュー(A/Bセット等)の選択。選んだメニュー名はnoteに保存する。
-  // 同じメニューを再タップすると解除(その日の記録を未達成に戻す)
+  // 判定は月ビューのチップと共通(lib/habits)
   async function selectMenu(layer: Layer, menuName: string) {
     const cur = habitOf(layer.id)
-    const kind = layer.config.habitKind ?? 'bool'
-    const isSame = cur?.note === menuName && cur && isAchieved(cur)
     await repo.upsertHabitEntry({
       id: cur?.id ?? newId(),
       layerId: layer.id,
       date,
-      valueBool: kind === 'bool' ? !isSame : null,
-      valueNum: kind === 'number' ? (isSame ? 0 : (cur?.valueNum || 1)) : null,
-      note: isSame ? '' : menuName,
+      ...nextHabitValues(cur, layer, menuName),
     })
     data.reload()
   }

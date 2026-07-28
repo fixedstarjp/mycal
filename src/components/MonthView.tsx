@@ -4,6 +4,8 @@ import type { AppData } from '../useAppData'
 import { newId, repo } from '../useAppData'
 import { WEEKDAY_LABELS, fourWeekDays, toDateStr, todayStr } from '../lib/dates'
 import { calcHabitStatuses, isAchieved } from '../lib/stats'
+import { nextHabitValues, selectedMenuName } from '../lib/habits'
+import type { Layer } from '../types'
 import { isMultiDay, weekEventBars } from '../lib/events'
 import type { TempsByDate } from '../lib/weather'
 import { useHorizontalSwipe } from '../hooks/useHorizontalSwipe'
@@ -53,20 +55,32 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
     [data.layers, data.habitEntries, today],
   )
 
-  // チップのタップで今日の達成を切り替える(1タップで記録完了)
-  async function toggleToday(status: (typeof habitStatuses)[number]) {
-    const { layer, doneToday } = status
-    const cur = data.habitEntries.find((e) => e.layerId === layer.id && e.date === today)
-    const kind = layer.config.habitKind ?? 'bool'
+  // メニュー選択を開いている習慣のレイヤーID(A/Bなどの選択肢を持つ習慣のみ)
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+
+  // チップのタップで今日の記録を切り替える(1タップで記録完了)。
+  // A/Bなどのメニューを持つ習慣は、いきなり記録せず選択肢を開く
+  const entryOf = (layerId: string) =>
+    data.habitEntries.find((e) => e.layerId === layerId && e.date === today)
+
+  async function record(layer: Layer, menuName?: string) {
+    const cur = entryOf(layer.id)
     await repo.upsertHabitEntry({
       id: cur?.id ?? newId(),
       layerId: layer.id,
       date: today,
-      valueBool: kind === 'bool' ? !doneToday : null,
-      valueNum: kind === 'number' ? (doneToday ? 0 : (cur?.valueNum || 1)) : null,
-      note: cur?.note ?? '',
+      ...nextHabitValues(cur, layer, menuName),
     })
+    setMenuFor(null)
     data.reload()
+  }
+
+  function tapChip(layer: Layer) {
+    if ((layer.config.menus ?? []).length > 0) {
+      setMenuFor((cur) => (cur === layer.id ? null : layer.id))
+      return
+    }
+    record(layer)
   }
 
   // date -> 集計のインデックスを作る
@@ -122,29 +136,80 @@ export default function MonthView({ anchor, data, temps, onSelectDate, onMove }:
         </button>
       </header>
 
-      {/* 今日の習慣: タップでその場で記録。達成済みはレイヤー色、🔥は連続日数 */}
+      {/* 今日の習慣: タップでその場で記録。達成済みはレイヤー色、🔥は連続日数。
+          A/Bなどのメニューを持つ習慣はタップで選択肢を開く */}
       {habitStatuses.length > 0 && (
-        <div className="mx-2 mb-1 flex gap-1.5 overflow-x-auto pb-0.5">
-          {habitStatuses.map((s) => (
-            <button
-              key={s.layer.id}
-              onClick={() => toggleToday(s)}
-              className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
-                s.doneToday
-                  ? 'border-transparent font-medium text-slate-900'
-                  : 'border-slate-700 bg-slate-800/40 text-slate-400'
-              }`}
-              style={s.doneToday ? { backgroundColor: s.layer.color } : undefined}
-            >
-              <span>{s.doneToday ? '✓' : s.layer.config.icon || '○'}</span>
-              <span>{s.layer.name}</span>
-              {s.streak > 0 && (
-                <span className={s.doneToday ? 'text-slate-900/70' : 'text-slate-500'}>
-                  🔥{s.streak}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="mx-2 mb-1">
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {habitStatuses.map((s) => {
+              const menu = selectedMenuName(entryOf(s.layer.id))
+              const hasMenus = (s.layer.config.menus ?? []).length > 0
+              return (
+                <button
+                  key={s.layer.id}
+                  onClick={() => tapChip(s.layer)}
+                  className={`flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                    s.doneToday
+                      ? 'border-transparent font-medium text-slate-900'
+                      : 'border-slate-700 bg-slate-800/40 text-slate-400'
+                  }`}
+                  style={s.doneToday ? { backgroundColor: s.layer.color } : undefined}
+                >
+                  <span>{s.doneToday ? '✓' : s.layer.config.icon || '○'}</span>
+                  <span>{s.layer.name}</span>
+                  {menu && <span className="font-bold">{menu}</span>}
+                  {s.streak > 0 && (
+                    <span className={s.doneToday ? 'text-slate-900/70' : 'text-slate-500'}>
+                      🔥{s.streak}
+                    </span>
+                  )}
+                  {/* 選択肢があることをひと目でわかるようにする */}
+                  {hasMenus && (
+                    <span className={s.doneToday ? 'text-slate-900/60' : 'text-slate-600'}>
+                      {menuFor === s.layer.id ? '▲' : '▼'}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* 選択されたメニュー(A/B等)。中身を出して選び間違いを防ぐ */}
+          {menuFor && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {(data.layers.find((l) => l.id === menuFor)?.config.menus ?? []).map((m) => {
+                const layer = data.layers.find((l) => l.id === menuFor)!
+                const active = selectedMenuName(entryOf(menuFor)) === m.name
+                return (
+                  <button
+                    key={m.name}
+                    onClick={() => record(layer, m.name)}
+                    className={`rounded-lg border px-2.5 py-1 text-xs ${
+                      active
+                        ? 'border-transparent font-medium text-slate-900'
+                        : 'border-slate-700 bg-slate-800/40 text-slate-300'
+                    }`}
+                    style={active ? { backgroundColor: layer.color } : undefined}
+                  >
+                    <span className="font-bold">{m.name}</span>
+                    {m.items.length > 0 && (
+                      <span className={active ? 'ml-1 text-slate-900/70' : 'ml-1 text-slate-500'}>
+                        {m.items.join('・')}
+                      </span>
+                    )}
+                    {active && <span className="ml-1 text-slate-900/70">✓</span>}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setMenuFor(null)}
+                className="px-1 text-xs text-slate-500"
+                aria-label="選択を閉じる"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       )}
 
