@@ -99,16 +99,42 @@ export function getCurrentPosition(timeoutMs = 5000): Promise<(Coords & { accura
   })
 }
 
-// アプリ起動時のチェック。検知した出来事(出発/帰宅)を返し、状態を更新する
-export async function checkPresence(): Promise<Transition> {
+// 現在地チェックの結果。手動チェック(フッターの位置情報ボタン)では
+// 「何も起きなかった」ときも理由を伝えたいので、成功以外も型で返す
+export type PresenceResult =
+  | { kind: 'transition'; transition: '出発' | '帰宅' } // 出入りを検知した
+  | { kind: 'unchanged'; state: PresenceState } // 前回から変化なし(初回もここ)
+  | { kind: 'no-home' } // 自宅が未登録
+  | { kind: 'unavailable' } // 現在地を取得できない(許可なし/タイムアウト等)
+  | { kind: 'inaccurate'; accuracy: number } // 精度が悪すぎて判定しない
+
+// 現在地を確認し、前回の状態と比べて出入りを判定する。判定後の状態は保存する
+export async function checkPresence(): Promise<PresenceResult> {
   const home = getHomeLocation()
-  if (!home) return null
+  if (!home) return { kind: 'no-home' }
   const pos = await getCurrentPosition()
-  // 位置が取れない/精度が悪いときは誤検知を避けて何もしない
-  if (!pos || pos.accuracy > MAX_ACCURACY_M) return null
+  if (!pos) return { kind: 'unavailable' }
+  // 精度が悪いときは誤検知を避けて状態も更新しない
+  if (pos.accuracy > MAX_ACCURACY_M) return { kind: 'inaccurate', accuracy: pos.accuracy }
 
   const current: PresenceState = isAtHome(pos, home) ? 'home' : 'away'
   const transition = detectTransition(getPresenceState(), current)
   setPresenceState(current)
-  return transition
+  return transition ? { kind: 'transition', transition } : { kind: 'unchanged', state: current }
+}
+
+// 手動チェックの結果メッセージ。押しても無反応にならないよう必ず何か返す
+export function presenceMessage(r: PresenceResult): string {
+  switch (r.kind) {
+    case 'transition':
+      return `${r.transition}を検知しました`
+    case 'unchanged':
+      return r.state === 'home' ? '自宅にいます(変化なし)' : '外出中です(変化なし)'
+    case 'no-home':
+      return '設定 → 外出の自動記録 で自宅を登録してください'
+    case 'unavailable':
+      return '現在地を取得できませんでした(位置情報の許可を確認してください)'
+    case 'inaccurate':
+      return `現在地の精度が粗いため判定しません(約${Math.round(r.accuracy)}m)`
+  }
 }

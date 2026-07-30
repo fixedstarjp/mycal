@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectTransition, distanceMeters, isAtHome } from './location'
+import { detectTransition, distanceMeters, isAtHome, presenceMessage } from './location'
 
 const tokyoStation = { lat: 35.6812, lon: 139.7671 }
 
@@ -56,5 +56,41 @@ describe('detectTransition', () => {
   it('初回(前回の状態がない)は記録しない', () => {
     expect(detectTransition(null, 'away')).toBeNull()
     expect(detectTransition(null, 'home')).toBeNull()
+  })
+})
+
+// フッターの位置情報ボタンは押しても無反応にならないよう、
+// どの結果でも必ずメッセージを返す必要がある
+describe('presenceMessage', () => {
+  it('検知したときは出来事を伝える', () => {
+    expect(presenceMessage({ kind: 'transition', transition: '出発' })).toContain('出発')
+  })
+
+  it('変化なしは今どちらにいるかを伝える', () => {
+    expect(presenceMessage({ kind: 'unchanged', state: 'home' })).toContain('自宅')
+    expect(presenceMessage({ kind: 'unchanged', state: 'away' })).toContain('外出中')
+  })
+
+  it('自宅未登録は設定へ誘導する', () => {
+    expect(presenceMessage({ kind: 'no-home' })).toContain('自宅を登録')
+  })
+
+  it('取得失敗は許可の確認を促す', () => {
+    expect(presenceMessage({ kind: 'unavailable' })).toContain('許可')
+  })
+
+  it('精度が粗いときは実際の精度を出す', () => {
+    expect(presenceMessage({ kind: 'inaccurate', accuracy: 512.4 })).toContain('512m')
+  })
+
+  it('どの結果でも空文字にならない', () => {
+    const all = [
+      { kind: 'transition', transition: '帰宅' },
+      { kind: 'unchanged', state: 'away' },
+      { kind: 'no-home' },
+      { kind: 'unavailable' },
+      { kind: 'inaccurate', accuracy: 300 },
+    ] as const
+    for (const r of all) expect(presenceMessage(r).length).toBeGreaterThan(0)
   })
 })
