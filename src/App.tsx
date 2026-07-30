@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addWeeks } from 'date-fns'
 import MonthView from './components/MonthView'
-import WeekView from './components/WeekView'
 import DayDetail from './components/DayDetail'
 import SearchView from './components/SearchView'
 import TodoView from './components/TodoView'
@@ -11,28 +10,33 @@ import { useAppData, newId, repo } from './useAppData'
 import { useAuth } from './useAuth'
 import { isSupabaseMode } from './data/supabaseClient'
 import { fetchWeather, type TempsByDate } from './lib/weather'
-import { checkPresence, type Transition } from './lib/location'
+import { checkPresence, presenceMessage, type Transition } from './lib/location'
 import { OUTING_FIELD_KEY, OUTING_LAYER_NAME } from './data/seed'
 import { roundTime5, todayStr } from './lib/dates'
 
-type View = 'month' | 'week' | 'todo' | 'search' | 'settings'
+type View = 'month' | 'todo' | 'search' | 'settings'
 
-interface NavItem {
-  key: View
-  label: string
+// フッターの1マス。画面切り替え(active付き)と即時アクションの両方に使う
+function NavButton({
+  icon,
+  label,
+  active = false,
+  onClick,
+}: {
   icon: string
-}
-
-function NavButton({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
+  label: string
+  active?: boolean
+  onClick: () => void
+}) {
   return (
     <button
       onClick={onClick}
       className={`flex flex-col items-center gap-0.5 py-1.5 text-[9px] ${
-        active ? 'text-sky-400' : 'text-slate-500'
+        active ? 'text-sky-400' : 'text-slate-500 active:text-sky-400'
       }`}
     >
-      <span className="text-base leading-none">{item.icon}</span>
-      <span className="max-w-full truncate px-0.5">{item.label}</span>
+      <span className="text-base leading-none">{icon}</span>
+      <span className="max-w-full truncate px-0.5">{label}</span>
     </button>
   )
 }
@@ -70,11 +74,33 @@ function MainApp() {
     loadWeather()
   }, [loadWeather])
 
-  // 起動時に現在地を確認し、前回から自宅を出入りしていれば記録を提案する(半自動)
+  // 起動時に現在地を確認し、前回から自宅を出入りしていれば記録を提案する(半自動)。
+  // フッターの「位置情報」からも同じチェックを手動で走らせられる
   const [outing, setOuting] = useState<Transition>(null)
-  useEffect(() => {
-    checkPresence().then(setOuting)
+  const [locMsg, setLocMsg] = useState('')
+
+  const runPresenceCheck = useCallback(async (manual: boolean) => {
+    if (manual) setLocMsg('現在地を確認中...')
+    const r = await checkPresence()
+    if (r.kind === 'transition') {
+      setOuting(r.transition)
+      setLocMsg('')
+      return
+    }
+    // 起動時の自動チェックは、検知しなかったときは黙っている
+    setLocMsg(manual ? presenceMessage(r) : '')
   }, [])
+
+  useEffect(() => {
+    runPresenceCheck(false)
+  }, [runPresenceCheck])
+
+  // 結果メッセージは数秒で自動的に消す(バナーが残り続けないように)
+  useEffect(() => {
+    if (!locMsg || locMsg.endsWith('確認中...')) return
+    const t = setTimeout(() => setLocMsg(''), 5000)
+    return () => clearTimeout(t)
+  }, [locMsg])
 
   async function recordOuting() {
     const kind = outing
@@ -93,13 +119,11 @@ function MainApp() {
     data.reload()
   }
 
-  const nav: { key: View; label: string; icon: string }[] = [
-    { key: 'month', label: 'カレンダー', icon: '📅' },
-    { key: 'week', label: '週', icon: '📋' },
-    { key: 'todo', label: 'ToDo', icon: '✅' },
-    { key: 'search', label: '検索', icon: '🔍' },
-    { key: 'settings', label: '設定', icon: '⚙️' },
-  ]
+  function openView(key: View) {
+    setView(key)
+    setSelectedDate(null)
+    if (key === 'month') setAnchor(new Date())
+  }
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col bg-slate-900 pt-[env(safe-area-inset-top)] text-slate-200">
@@ -126,19 +150,26 @@ function MainApp() {
         </div>
       )}
 
+      {/* 手動チェックの結果。押しても無反応に見えないよう必ず表示する */}
+      {locMsg && !outing && (
+        <div className="mx-2 mt-1 flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2">
+          <span className="text-sm text-slate-300">📍 {locMsg}</span>
+          <button
+            onClick={() => setLocMsg('')}
+            className="ml-auto shrink-0 px-1 text-slate-500"
+            aria-label="閉じる"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <main className="min-h-0 flex-1">
         {view === 'month' ? (
           <MonthView
             anchor={anchor}
             data={data}
             temps={temps}
-            onSelectDate={setSelectedDate}
-            onMove={(d) => setAnchor((a) => addWeeks(a, d))}
-          />
-        ) : view === 'week' ? (
-          <WeekView
-            anchor={anchor}
-            data={data}
             onSelectDate={setSelectedDate}
             onMove={(d) => setAnchor((a) => addWeeks(a, d))}
           />
@@ -167,28 +198,14 @@ function MainApp() {
       )}
 
       <nav className="grid shrink-0 grid-cols-6 border-t border-slate-800 bg-slate-900 pb-[calc(env(safe-area-inset-bottom)*0.5)]">
-        {nav.slice(0, 2).map((n) => (
-          <NavButton key={n.key} item={n} active={view === n.key && !selectedDate} onClick={() => {
-            setView(n.key)
-            setSelectedDate(null)
-            setAnchor(new Date())
-          }} />
-        ))}
-        {/* 中央: ブラウザリロード(最新データ・気温・アプリ新バージョンをまとめて取り込む) */}
-        <button
-          onClick={() => window.location.reload()}
-          className="flex flex-col items-center gap-0.5 py-1.5 text-[9px] text-slate-500 active:text-sky-400"
-          aria-label="再読み込み"
-        >
-          <span className="text-base leading-none">🔄</span>
-          更新
-        </button>
-        {nav.slice(2).map((n) => (
-          <NavButton key={n.key} item={n} active={view === n.key && !selectedDate} onClick={() => {
-            setView(n.key)
-            setSelectedDate(null)
-          }} />
-        ))}
+        <NavButton icon="📅" label="カレンダー" active={view === 'month' && !selectedDate} onClick={() => openView('month')} />
+        <NavButton icon="✅" label="ToDo" active={view === 'todo' && !selectedDate} onClick={() => openView('todo')} />
+        <NavButton icon="🔍" label="検索" active={view === 'search' && !selectedDate} onClick={() => openView('search')} />
+        {/* 現在地を確認して外出/帰宅を判定する(結果は上部バナーに出る) */}
+        <NavButton icon="📍" label="位置情報" onClick={() => runPresenceCheck(true)} />
+        {/* ブラウザリロード(最新データ・気温・アプリ新バージョンをまとめて取り込む) */}
+        <NavButton icon="🔄" label="更新" onClick={() => window.location.reload()} />
+        <NavButton icon="⚙️" label="設定" active={view === 'settings' && !selectedDate} onClick={() => openView('settings')} />
       </nav>
     </div>
   )

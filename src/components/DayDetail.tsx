@@ -10,6 +10,7 @@ import { toDateStr } from '../lib/dates'
 import { getHolidayName } from '../lib/holidays'
 import { eventEndDate, eventOccursOn } from '../lib/events'
 import { todosOnDate } from '../lib/todos'
+import { OUTING_LAYER_NAME } from '../data/seed'
 import { POP6_LABELS, weatherEmoji, type TempsByDate } from '../lib/weather'
 import { useBottomSheet } from '../hooks/useBottomSheet'
 import LogEntryForm from './LogEntryForm'
@@ -379,18 +380,22 @@ export default function DayDetail({ date, data, temps, onBack, onChangeDate }: P
 
           <section>
             <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-500">追加</h2>
-            {/* 追加ボタン: ログレイヤー+予定をひとまとめに */}
+            {/* 追加ボタン: ログレイヤー+予定をひとまとめに。
+                外出記録は位置情報から入れるものなので手動追加のボタンは出さない
+                (誤って入った記録の編集・削除は上の一覧からできる) */}
             <div className="flex flex-wrap gap-2">
-              {logLayers.map((l) => (
-                <button
-                  key={l.id}
-                  onClick={() => setAddingLayer(l)}
-                  className="rounded-full px-3 py-1.5 text-sm font-medium text-white active:opacity-80"
-                  style={{ backgroundColor: l.color }}
-                >
-                  + {l.name}
-                </button>
-              ))}
+              {logLayers
+                .filter((l) => l.name !== OUTING_LAYER_NAME)
+                .map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => setAddingLayer(l)}
+                    className="rounded-full px-3 py-1.5 text-sm font-medium text-white active:opacity-80"
+                    style={{ backgroundColor: l.color }}
+                  >
+                    + {l.name}
+                  </button>
+                ))}
               <button
                 onClick={() => {
                   setEditingEvent(null)
