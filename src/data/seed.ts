@@ -115,6 +115,7 @@ export const seedLayers: Layer[] = [
     color: '#c0663f',
     config: {
       hideNote: true,
+      icon: '🍽️',
       fields: [
         { key: 'slot', label: '時間帯', type: 'select', options: ['朝', '昼', '夜', '間食'], required: true },
         {
@@ -137,6 +138,7 @@ export const seedLayers: Layer[] = [
     color: '#6b7fb5',
     config: {
       hideNote: true,
+      icon: '📝',
       fields: [
         { key: 'mood', label: '気分', type: 'select', options: MOOD_OPTIONS, required: false },
         { key: 'content', label: '内容', type: 'textarea', required: true },
