@@ -123,7 +123,8 @@ function LayerEditForm({
   const [color, setColor] = useState(layer.color)
   const [habitKind, setHabitKind] = useState(layer.config.habitKind ?? 'bool')
   const [habitUnit, setHabitUnit] = useState(layer.config.habitUnit ?? '')
-  const [habitIcon, setHabitIcon] = useState(layer.config.icon ?? '')
+  // カレンダーに出すマーク。習慣=達成日、ログ=記録があった日
+  const [icon, setIcon] = useState(layer.config.icon ?? '')
   const [fields, setFields] = useState<FieldDef[]>(layer.config.fields ?? [])
   const [menus, setMenus] = useState<HabitMenu[]>(layer.config.menus ?? [])
   const [error, setError] = useState('')
@@ -162,12 +163,13 @@ function LayerEditForm({
           ? {
               habitKind,
               habitUnit: habitUnit || undefined,
-              icon: habitIcon.trim() || undefined,
+              icon: icon.trim() || undefined,
               menus: menus.length > 0 ? menus.map((m) => ({ ...m, name: m.name.trim() })) : undefined,
             }
           : {
               // hideNote等の既存設定は編集フォームで触らないため引き継ぐ
               ...layer.config,
+              icon: icon.trim() || undefined,
               fields: fields.map((f) => ({
                 ...f,
                 options:
@@ -209,6 +211,23 @@ function LayerEditForm({
             </div>
           </div>
 
+          {/* カレンダーに出すマーク。習慣は未設定でも色ドットが出るが、
+              ログは未設定だとカレンダーに出ない(件数の数字では判別できないため) */}
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">
+              {layer.type === 'habit'
+                ? '達成日のマーク(絵文字・任意) — 未設定はレイヤー色のドット'
+                : 'カレンダーのマーク(絵文字) — 未設定だとカレンダーには出ません'}
+            </span>
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value.trim())}
+              placeholder={layer.type === 'habit' ? '例: 💪' : '例: 🍽️'}
+              maxLength={4}
+              className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-center text-base text-slate-200"
+            />
+          </label>
+
           {layer.type === 'habit' ? (
             <div className="space-y-2">
               <span className="block text-xs text-slate-500">記録タイプ</span>
@@ -236,19 +255,6 @@ function LayerEditForm({
                   />
                 </label>
               )}
-
-              <label className="block">
-                <span className="mb-1 block text-xs text-slate-500">
-                  達成日のマーク(絵文字・任意) — 未設定はレイヤー色のドット
-                </span>
-                <input
-                  value={habitIcon}
-                  onChange={(e) => setHabitIcon(e.target.value.trim())}
-                  placeholder="例: 💪"
-                  maxLength={4}
-                  className="w-24 rounded-lg border border-slate-700 bg-slate-800 px-2 py-2 text-center text-base text-slate-200"
-                />
-              </label>
 
               {/* メニュー: 例) A=腹筋・ベンチプレス / B=デッドリフト・腕 */}
               <div className="space-y-2 pt-2">

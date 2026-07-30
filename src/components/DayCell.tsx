@@ -108,13 +108,17 @@ export default function DayCell({
           className="flex flex-col items-center rounded bg-slate-700 px-0.5"
         >
           {ev.icon && <span className="text-[10px] leading-3">{ev.icon}</span>}
-          <span className="line-clamp-1 w-full break-all text-center text-[9px] leading-3 text-slate-100">
+          {/* タイトルは省略せず最大2行まで折り返す */}
+          <span className="line-clamp-2 w-full break-all text-center text-[9px] leading-3 text-slate-100">
             {ev.title}
           </span>
         </span>
       ))}
       {info?.events.slice(0, Math.max(0, MAX_EVENTS - info.appEvents.length)).map((t, i) => (
-        <span key={`g${i}`} className="truncate rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400">
+        <span
+          key={`g${i}`}
+          className="line-clamp-2 break-all rounded bg-slate-800 px-1 text-[10px] leading-4 text-slate-400"
+        >
           {t}
         </span>
       ))}
@@ -142,17 +146,17 @@ export default function DayCell({
               />
             ),
           )}
+        {/* ログは絵文字を設定したレイヤーだけ出す。
+            色つきの件数だけでは何の記録か判別できないため、
+            カレンダーに出したいものにレイヤー管理で絵文字を設定してもらう。
+            2件以上のときだけ件数を小さく添える */}
         {logLayers.map((l) => {
           const n = info?.logCounts.get(l.id) ?? 0
-          if (n === 0) return null
+          if (n === 0 || !l.config.icon) return null
           return (
-            <span
-              key={l.id}
-              className="rounded px-1 text-[10px] font-medium leading-4 text-white"
-              style={{ backgroundColor: l.color }}
-              title={`${l.name} ${n}件`}
-            >
-              {n}
+            <span key={l.id} className="flex items-baseline" title={`${l.name} ${n}件`}>
+              <span className="text-[11px] leading-3">{l.config.icon}</span>
+              {n > 1 && <span className="text-[8px] leading-3 text-slate-400">{n}</span>}
             </span>
           )
         })}
