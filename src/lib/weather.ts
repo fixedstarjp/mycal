@@ -43,6 +43,17 @@ interface Cache {
 // 直近の取得で使った気象庁予報区名(設定表示などに使う)
 export let lastJmaAreaName = ''
 
+// 外部の天気APIに渡す座標の丸め桁数。
+// 2桁=約1kmの粒度で、天気予報にはこれで十分。
+// フル精度(小数7桁=1m未満)のまま送るとURLに自宅が載り、
+// 第三者のアクセスログに残ってしまうため必ず丸める。
+export const COORD_DIGITS = 2
+
+export function coarseCoord(v: number, digits = COORD_DIGITS): number {
+  const f = 10 ** digits
+  return Math.round(v * f) / f
+}
+
 function getPosition(timeoutMs = 3000): Promise<{ lat: number; lon: number }> {
   return new Promise((resolve) => {
     if (!('geolocation' in navigator)) return resolve(FALLBACK)
@@ -50,7 +61,8 @@ function getPosition(timeoutMs = 3000): Promise<{ lat: number; lon: number }> {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         clearTimeout(timer)
-        resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+        // 取得した時点で丸め、フル精度の座標をアプリ内に持ち回らない
+        resolve({ lat: coarseCoord(pos.coords.latitude), lon: coarseCoord(pos.coords.longitude) })
       },
       () => {
         clearTimeout(timer)
@@ -84,8 +96,9 @@ export async function fetchWeather(force = false): Promise<TempsByDate> {
 
   // 気温・天気アイコンはOpen-Meteo(全国・海外対応)。
   // 6時間降水確率は気象庁の予報を最寄りの予報区から取得する。
+  // 送信直前にも丸める(getPositionの変更で精度が漏れ出さないようにする)
   const omUrl =
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `https://api.open-meteo.com/v1/forecast?latitude=${coarseCoord(lat)}&longitude=${coarseCoord(lon)}` +
     `&daily=temperature_2m_max,temperature_2m_min,weathercode` +
     `&timezone=auto&forecast_days=7`
   const omRes = await fetch(omUrl)
