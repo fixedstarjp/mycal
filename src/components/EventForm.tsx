@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { addDays, format } from 'date-fns'
+import { format } from 'date-fns'
 import type { AppEvent } from '../types'
 import { newId, repo } from '../useAppData'
-import { addOneHour, toDateStr } from '../lib/dates'
+import { addOneHour, dateOptions } from '../lib/dates'
 import { addIconPreset, getIconPresets, iconFrequency, orderIcons } from '../lib/iconPresets'
 import BottomModal from './BottomModal'
 import TimeSelect from './TimeSelect'
@@ -35,35 +35,42 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
   // 新規作成時のデフォルトは9:00開始・10:00終了
   const [time, setTime] = useState(existing ? existing.time : '09:00')
   const [endTime, setEndTime] = useState(existing ? existing.endTime : '10:00')
+  // 開始日は編集できる。既存の予定は必ず「その予定の開始日」を初期値にする
+  // (複数日予定を2日目以降から開いても開始日がずれないように)
+  const [startDate, setStartDate] = useState(existing?.date ?? date)
   const [endDate, setEndDate] = useState(existing?.endDate ?? '')
   const [note, setNote] = useState(existing?.note ?? '')
   const [error, setError] = useState('')
 
+  // 開始日の候補: 開いている日の前後30日(既存の開始日が範囲外ならそれも含める)
+  const startDateOptions = useMemo(
+    () => dateOptions(date, 30, 30, existing?.date),
+    [date, existing?.date],
+  )
+
   // 終了日の候補: 開始日から30日先まで(既存データが範囲外ならそれも含める)
-  const endDateOptions = useMemo(() => {
-    const base = new Date(date + 'T00:00:00')
-    const opts = Array.from({ length: 31 }, (_, i) => toDateStr(addDays(base, i)))
-    if (endDate && !opts.includes(endDate)) opts.push(endDate)
-    return opts
-  }, [date, endDate])
+  const endDateOptions = useMemo(
+    () => dateOptions(startDate, 0, 30, endDate || undefined),
+    [startDate, endDate],
+  )
 
   async function submit() {
     if (!title.trim()) {
       setError('タイトルを入力してください')
       return
     }
-    if (endDate && endDate < date) {
+    if (endDate && endDate < startDate) {
       setError('終了日は開始日以降にしてください')
       return
     }
-    const singleDay = !endDate || endDate === date
+    const singleDay = !endDate || endDate === startDate
     if (singleDay && time && endTime && endTime < time) {
       setError('終了時刻は開始時刻より後にしてください')
       return
     }
     await repo.saveEvent({
       id: existing?.id ?? newId(),
-      date,
+      date: startDate,
       endDate: singleDay ? '' : endDate,
       time,
       endTime: time ? endTime : '',
@@ -135,9 +142,23 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
       <div className="space-y-2">
         <div className="flex items-center gap-2">
           <span className="w-9 shrink-0 text-xs text-slate-500">開始</span>
-          <span className="w-[4.7rem] shrink-0 text-center text-base text-slate-400">
-            {format(new Date(date + 'T00:00:00'), 'M/d')}
-          </span>
+          <select
+            value={startDate}
+            onChange={(e) => {
+              const v = e.target.value
+              setStartDate(v)
+              // 開始日を終了日より後にずらしたら、単日の予定に戻す
+              if (endDate && endDate < v) setEndDate('')
+            }}
+            className="w-[4.7rem] shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-1 py-2.5 text-center text-base text-slate-200"
+            aria-label="開始日"
+          >
+            {startDateOptions.map((d) => (
+              <option key={d} value={d}>
+                {format(new Date(d + 'T00:00:00'), 'M/d')}
+              </option>
+            ))}
+          </select>
           <TimeSelect
             value={time}
             onChange={(v) => {
@@ -154,8 +175,8 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
         <div className="flex items-center gap-2">
           <span className="w-9 shrink-0 text-xs text-slate-500">終了</span>
           <select
-            value={endDate || date}
-            onChange={(e) => setEndDate(e.target.value === date ? '' : e.target.value)}
+            value={endDate || startDate}
+            onChange={(e) => setEndDate(e.target.value === startDate ? '' : e.target.value)}
             className="w-[4.7rem] shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-1 py-2.5 text-center text-base text-slate-200"
             aria-label="終了日"
           >
@@ -167,7 +188,9 @@ export default function EventForm({ date, existing, onClose, onSaved }: Props) {
           </select>
           <TimeSelect value={endTime} disabled={!time} onChange={setEndTime} />
         </div>
-        <p className="text-[10px] text-slate-600">時刻を「--」にすると終日。終了の月日を変えると連日の予定になります</p>
+        <p className="text-[10px] text-slate-600">
+          時刻を「--」にすると終日。終了の月日を開始より後にすると連日の予定になります
+        </p>
       </div>
 
       <label className="block">

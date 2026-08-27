@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fourWeekDays, roundTime5, toDateStr, weekDays } from './dates'
+import { dateOptions, fourWeekDays, roundTime5, toDateStr, weekDays } from './dates'
 import { aggregatePop6, parseOpenMeteoDaily, weatherEmoji } from './weather'
 
 describe('fourWeekDays', () => {
@@ -153,5 +153,36 @@ describe('weatherEmoji', () => {
     expect(weatherEmoji(71)).toBe('❄️') // 雪
     expect(weatherEmoji(95)).toBe('⛈️') // 雷雨
     expect(weatherEmoji(undefined)).toBe('')
+  })
+})
+
+// 予定フォームの日付セレクト用。既存の日付が候補から漏れると
+// 保存時に日付が勝手に変わってしまうため、必ず含まれることを担保する
+describe('dateOptions', () => {
+  it('baseの前後を昇順で返す', () => {
+    expect(dateOptions('2026-08-10', 1, 1)).toEqual(['2026-08-09', '2026-08-10', '2026-08-11'])
+  })
+
+  it('前0日にすればbase以降だけになる(終了日の候補)', () => {
+    expect(dateOptions('2026-08-10', 0, 2)).toEqual(['2026-08-10', '2026-08-11', '2026-08-12'])
+  })
+
+  it('月をまたいでも正しく並ぶ', () => {
+    expect(dateOptions('2026-08-31', 1, 1)).toEqual(['2026-08-30', '2026-08-31', '2026-09-01'])
+  })
+
+  it('範囲外のextraを含める', () => {
+    const opts = dateOptions('2026-08-10', 1, 1, '2026-12-25')
+    expect(opts).toContain('2026-12-25')
+    expect(opts[opts.length - 1]).toBe('2026-12-25')
+  })
+
+  it('範囲内のextraは重複しない', () => {
+    const opts = dateOptions('2026-08-10', 1, 1, '2026-08-10')
+    expect(opts).toEqual(['2026-08-09', '2026-08-10', '2026-08-11'])
+  })
+
+  it('±30日で61件になる', () => {
+    expect(dateOptions('2026-08-10', 30, 30)).toHaveLength(61)
   })
 })
