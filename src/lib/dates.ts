@@ -8,6 +8,16 @@ export function todayStr(): string {
   return toDateStr(new Date())
 }
 
+// 日付セレクトの候補。baseの前後を並べ、範囲外の既存値(extra)があれば必ず含める。
+// 既存の予定を編集するとき、候補に無くて日付が変わってしまうのを防ぐ
+export function dateOptions(base: string, before: number, after: number, extra?: string): string[] {
+  const b = new Date(base + 'T00:00:00')
+  const set = new Set<string>()
+  for (let i = -before; i <= after; i++) set.add(toDateStr(addDays(b, i)))
+  if (extra) set.add(extra)
+  return [...set].sort()
+}
+
 // 日曜始まり
 const WEEK_STARTS_ON = 0 as const
 
